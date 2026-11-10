@@ -53,15 +53,18 @@ jobs:
         shell: pwsh
         run: ./scripts/build.ps1 -SkipDeps -Zip -Installer
 
-      - name: Smoke-run the app (window, engine, real playback)
+      - name: Smoke-run the app (tour of every mode, with screenshots)
         shell: pwsh
         run: |
           $exe = "$PWD\publish\Mashhad\Mashhad.exe"
           $ffmpeg = "$PWD\native\ffmpeg\ffmpeg.exe"
-          New-Item -ItemType Directory -Force smoke | Out-Null
-          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=640x360:rate=30:duration=6" -f lavfi -i "sine=frequency=440:duration=6" -c:v mpeg4 -q:v 4 -pix_fmt yuv420p -c:a aac -shortest "smoke\فيديو sample.mp4"
-          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=1280x720:rate=1" -frames:v 1 -update 1 "smoke\photo.png"
-          if (-not (Test-Path "smoke\photo.png")) { throw "could not create test media" }
+          New-Item -ItemType Directory -Force smoke\media\Archive | Out-Null
+          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=1280x720:rate=30:duration=8" -f lavfi -i "sine=frequency=440:duration=8" -c:v mpeg4 -q:v 3 -g 30 -pix_fmt yuv420p -c:a aac -shortest "smoke\media\فيديو sample.mp4"
+          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=1600x1000:rate=1" -frames:v 1 -update 1 "smoke\media\photo.png"
+          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "mandelbrot=size=900x1200:rate=1" -frames:v 1 -update 1 "smoke\media\portrait.jpg"
+          Copy-Item "smoke\media\photo.png" "smoke\photo.png"
+          Copy-Item "smoke\media\فيديو sample.mp4" "smoke\video.mp4"
+          if (-not (Test-Path "smoke\media\portrait.jpg")) { throw "could not create test media" }
 
           # Keep a minidump of any crash so it can be analysed below.
           $dumps = "$PWD\smoke\dumps"
@@ -72,28 +75,52 @@ jobs:
           New-ItemProperty -Path $wer -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
           $cdb = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
 
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          function Capture([string]$path) {
+            $b = [System.Windows.Forms.SystemInformation]::VirtualScreen
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($b.Left, $b.Top, 0, 0, $bmp.Size)
+            $g.Dispose(); $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
+          }
+
           $failed = $false
           $cases = @(
             @{ Name = 'ui-only'; Args = @(); NoEngine = $true },
             @{ Name = 'empty'; Args = @() },
-            @{ Name = 'empty-vo-null'; Args = @(); Mpv = 'vo=null' },
-            @{ Name = 'video'; Args = @("$PWD\smoke\فيديو sample.mp4") },
+            @{ Name = 'tour'; Args = @("$PWD\smoke\media") },
+            @{ Name = 'video'; Args = @("$PWD\smoke\video.mp4") },
+            @{ Name = 'video-docked'; Args = @("$PWD\smoke\video.mp4"); NoOverlay = $true },
             @{ Name = 'image'; Args = @("$PWD\smoke\photo.png") }
           )
           foreach ($case in $cases) {
             $log = "$PWD\smoke\$($case.Name).log"
             $argList = @('--smoke-test', '--smoke-log', "`"$log`"") + ($case.Args | ForEach-Object { "`"$_`"" })
             if ($case.NoEngine) { $env:MASHHAD_DISABLE_ENGINE = '1' } else { Remove-Item Env:MASHHAD_DISABLE_ENGINE -ErrorAction SilentlyContinue }
-            if ($case.Mpv) { $env:MASHHAD_MPV_OPTIONS = $case.Mpv } else { Remove-Item Env:MASHHAD_MPV_OPTIONS -ErrorAction SilentlyContinue }
+            if ($case.NoOverlay) { $env:MASHHAD_NO_OVERLAY = '1' } else { Remove-Item Env:MASHHAD_NO_OVERLAY -ErrorAction SilentlyContinue }
             $started = Get-Date
             $p = Start-Process -FilePath $exe -ArgumentList $argList -PassThru
-            if (-not $p.WaitForExit(120000)) { $p.Kill(); Write-Host "::error::smoke '$($case.Name)' hung"; $failed = $true }
+            $snaps = @{}
+            $deadline = (Get-Date).AddSeconds(180)
+            while (-not $p.HasExited -and (Get-Date) -lt $deadline) {
+              if (Test-Path $log) {
+                foreach ($line in (Get-Content $log -ErrorAction SilentlyContinue)) {
+                  if ($line -match 'SNAP (\S+)$' -and -not $snaps.ContainsKey($Matches[1])) {
+                    $n = $Matches[1]; $snaps[$n] = 1
+                    Start-Sleep -Milliseconds 600
+                    try { Capture "$PWD\smoke\snap-$($case.Name)-$n.png" } catch { Write-Host "capture failed: $_" }
+                  }
+                }
+              }
+              Start-Sleep -Milliseconds 150
+            }
+            if (-not $p.HasExited) { $p.Kill(); Write-Host "::error::smoke '$($case.Name)' hung"; $failed = $true }
+            $p.WaitForExit()
             Write-Host ("===== smoke: {0} (exit code {1} / 0x{2:X8}) =====" -f $case.Name, $p.ExitCode, $p.ExitCode)
-            if (Test-Path $log) { Get-Content $log | Where-Object { $_ -notmatch 'mpv\[(v|debug|trace)\]' } } else { Write-Host "(no log written)" }
+            if (Test-Path $log) { Get-Content $log | Where-Object { $_ -notmatch 'mpv\[(v|debug|trace)\]|TRACE host' } } else { Write-Host "(no log written)" }
             if ($p.ExitCode -ne 0 -or -not (Test-Path $log) -or -not (Select-String -Path $log -Pattern 'SMOKE RESULT: PASS' -Quiet)) {
               Write-Host "::error::smoke '$($case.Name)' failed"
               $failed = $true
-              # Crash details: faulting module/offset, .NET stack, WER bucket.
               Start-Sleep -Seconds 3
               Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $started } -ErrorAction SilentlyContinue |
                 Where-Object { $_.ProviderName -in 'Application Error', '.NET Runtime', 'Windows Error Reporting' } |
@@ -105,14 +132,30 @@ jobs:
                 & $cdb.FullName -z $dmp.FullName -y 'srv*C:\symcache*https://msdl.microsoft.com/download/symbols' -logo $report `
                   -c '!analyze -v; .ecxr; kc 40; q' | Out-Null
                 Write-Host "--- crash analysis ($($dmp.Name))"
-                Select-String -Path $report -Pattern 'EXCEPTION_CODE_STR|ERROR_CODE|STOWED_EXCEPTION|EXCEPTION_MESSAGE|FAILURE_BUCKET_ID|SYMBOL_NAME|FAULTING_THREAD' |
+                Select-String -Path $report -Pattern 'EXCEPTION_CODE_STR|ERROR_CODE|STOWED_EXCEPTION|EXCEPTION_MESSAGE|FAILURE_BUCKET_ID|SYMBOL_NAME' |
                   ForEach-Object { Write-Host $_.Line }
                 Select-String -Path $report -Pattern '^STACK_TEXT' -Context 0,90 | ForEach-Object { $_.Context.PostContext | ForEach-Object { Write-Host $_ } }
-              } elseif (-not $cdb) { Write-Host "(cdb not found; dump kept in smoke-logs)" }
+              }
             }
           }
-          Remove-Item Env:MASHHAD_DISABLE_ENGINE -ErrorAction SilentlyContinue
-          Remove-Item Env:MASHHAD_MPV_OPTIONS -ErrorAction SilentlyContinue
+          Remove-Item Env:MASHHAD_DISABLE_ENGINE, Env:MASHHAD_NO_OVERLAY -ErrorAction SilentlyContinue
+
+          # Print downscaled screenshots into the log (base64 JPEG) so they can be reviewed without artifact access.
+          $jpeg = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' }
+          $params = New-Object System.Drawing.Imaging.EncoderParameters 1
+          $params.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter ([System.Drawing.Imaging.Encoder]::Quality), 62L
+          foreach ($png in Get-ChildItem smoke -Filter 'snap-*.png' | Sort-Object LastWriteTime) {
+            $img = [System.Drawing.Image]::FromFile($png.FullName)
+            $w = [Math]::Min(1100, $img.Width); $h = [int]($img.Height * $w / $img.Width)
+            $small = New-Object System.Drawing.Bitmap $img, $w, $h
+            $ms = New-Object System.IO.MemoryStream
+            $small.Save($ms, $jpeg, $params)
+            $b64 = [Convert]::ToBase64String($ms.ToArray())
+            $img.Dispose(); $small.Dispose(); $ms.Dispose()
+            $name = $png.BaseName
+            for ($i = 0; $i -lt $b64.Length; $i += 4000) { Write-Host ("SNAPB64 {0} {1} {2}" -f $name, ($i / 4000), $b64.Substring($i, [Math]::Min(4000, $b64.Length - $i))) }
+            Write-Host "SNAPEND $name"
+          }
           if ($failed) { exit 1 }
 
       - name: Upload installer and portable zip
@@ -133,5 +176,6 @@ jobs:
           path: |
             smoke/*.log
             smoke/*-analyze.txt
+            smoke/snap-*.png
             smoke/dumps/*.dmp
           if-no-files-found: ignore

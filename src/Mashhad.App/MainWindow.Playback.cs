@@ -22,14 +22,14 @@ public sealed partial class MainWindow
     private double _pendingPosition;
     private List<string> _pendingSubtitles = new();
     private bool _suppressVolumeEvent;
+    private string? _engineError;
 
     private bool IsTimed => _kind.IsTimed();
 
-    // ---- engine ---------------------------------------------------------------------------
+    // ---- engine ------------------------------------------------------------------------------
 
     private void InitializePlayer()
     {
-        // Diagnostics switch: run the UI without the playback engine (used by the CI smoke test).
         if (Environment.GetEnvironmentVariable("MASHHAD_DISABLE_ENGINE") == "1")
         {
             Log.Write("Playback engine disabled by MASHHAD_DISABLE_ENGINE");
@@ -38,29 +38,25 @@ public sealed partial class MainWindow
         if (!MpvPlayer.IsAvailable(out var error))
         {
             Log.Write("libmpv not available: " + error);
-            EmptyError.Text = Loc.F("Error.MpvMissing", Path.Combine(AppContext.BaseDirectory, "mpv"));
-            EmptyError.Visibility = Visibility.Visible;
+            _engineError = Loc.F("Error.MpvMissing", System.IO.Path.Combine(AppContext.BaseDirectory, "mpv"));
             return;
         }
-
         try
         {
             Trace("player: creating video host");
             if (_smokeTest) VideoHost.Trace = Trace;
             _host = new VideoHost(_hwnd);
-            Trace("player: video host created");
-            _host.MouseMove += Host_MouseMove;
+            // Mouse on the native video window: in Edit mode, and in Play mode when the docked
+            // fallback is used (with the overlay window, the overlay receives the input instead).
             _host.MouseDown += Host_MouseDown;
-            _host.MouseUp += Host_MouseUp;
+            _host.MouseMove += Host_MouseMove;
+            _host.MouseUp += (b, _, _) => { if (b == HostButton.Left) _dragging = false; };
             _host.DoubleClick += (_, _) => SetFullscreen(!_isFullscreen);
             _host.Wheel += Host_Wheel;
             _host.FilesDropped += files => OpenPaths(files);
-            SyncVideoHostBounds();
-            Trace("player: host positioned");
+            Trace("player: video host created");
 
-            string shots = string.IsNullOrWhiteSpace(Settings.ScreenshotDirectory)
-                ? AppPaths.DefaultScreenshotDirectory
-                : Settings.ScreenshotDirectory;
+            string shots = string.IsNullOrWhiteSpace(Settings.ScreenshotDirectory) ? AppPaths.DefaultScreenshotDirectory : Settings.ScreenshotDirectory;
             var options = MpvOptions.Build(Settings, _host.Handle.ToInt64(), shots);
             options.AddRange(MpvOptions.FromEnvironment(Environment.GetEnvironmentVariable("MASHHAD_MPV_OPTIONS")));
             Trace("player: creating mpv");
@@ -75,16 +71,13 @@ public sealed partial class MainWindow
             {
                 if (_smokeTest || level is "error" or "fatal") Log.Write($"mpv[{level}] {prefix}: {text}");
             };
-
             foreach (var (name, format) in new (string, MpvFormat)[]
                      {
                          ("time-pos", MpvFormat.Double), ("duration", MpvFormat.Double), ("pause", MpvFormat.Flag),
                          ("eof-reached", MpvFormat.Flag), ("volume", MpvFormat.Double), ("mute", MpvFormat.Flag),
                          ("speed", MpvFormat.Double), ("ab-loop-a", MpvFormat.Double), ("ab-loop-b", MpvFormat.Double),
-                         ("path", MpvFormat.String),
                      })
                 _mpv.Observe(name, format);
-
             _volume = Settings.Volume;
             _muted = Settings.Muted;
             UpdateVolumeUi();
@@ -97,15 +90,14 @@ public sealed partial class MainWindow
             Log.Write("Player initialisation failed: " + e);
             _mpv?.Dispose();
             _mpv = null;
-            EmptyError.Text = Loc.F("Error.PlayerInit", e.Message);
-            EmptyError.Visibility = Visibility.Visible;
+            _engineError = Loc.F("Error.PlayerInit", e.Message);
         }
-        UpdateVideoHostVisibility();
+        _host?.SetVisible(false);
         UpdateAbout();
         Trace("player: done");
     }
 
-    /// <summary>mpv event thread: coalesce the high-frequency position updates, forward the rest.</summary>
+    /// <summary>mpv event thread: coalesce position updates, forward the rest to the UI thread.</summary>
     private void Mpv_PropertyChanged(string name, object? value)
     {
         if (name == "time-pos")
@@ -114,11 +106,7 @@ public sealed partial class MainWindow
             {
                 Volatile.Write(ref _pendingPosition, pos);
                 if (Interlocked.Exchange(ref _positionQueued, 1) == 0)
-                    RunOnUi(() =>
-                    {
-                        Interlocked.Exchange(ref _positionQueued, 0);
-                        OnPosition(Volatile.Read(ref _pendingPosition));
-                    });
+                    RunOnUi(() => { Interlocked.Exchange(ref _positionQueued, 0); OnPosition(Volatile.Read(ref _pendingPosition)); });
             }
             return;
         }
@@ -129,8 +117,13 @@ public sealed partial class MainWindow
     {
         _position = position;
         if (!IsTimed) return;
-        if (!Timeline.IsDragging) Timeline.Position = position;
-        PositionText.Text = TimeFormat.Clock(position, millis: _editMode, forceHours: _duration >= 3600);
+        _chrome.Seek.Position = position;
+        _chrome.TimeText.Text = $"{TimeFormat.Clock(position, forceHours: _duration >= 3600)} / {TimeFormat.Clock(_duration, forceHours: _duration >= 3600)}";
+        if (_mode == AppMode.Edit)
+        {
+            _editor.Timeline.Position = position;
+            _editor.TimeText.Text = TimeFormat.Clock(position, millis: true, forceHours: true);
+        }
     }
 
     private void OnProperty(string name, object? value)
@@ -139,13 +132,16 @@ public sealed partial class MainWindow
         {
             case "duration":
                 _duration = value as double? ?? 0;
-                Timeline.Duration = _duration;
+                _chrome.Seek.Duration = _duration;
                 _segments.Duration = _duration;
-                DurationText.Text = TimeFormat.Clock(_duration, forceHours: _duration >= 3600);
+                _editor.Timeline.Duration = _duration;
+                _editor.DurationText.Text = "/ " + TimeFormat.Clock(_duration, millis: true, forceHours: true);
+                OnPosition(_position);
                 break;
             case "pause":
                 _paused = value as bool? ?? true;
-                PlayIcon.Glyph = _paused ? "" : "";
+                _chrome.PlayGlyph.Glyph = _editor.PlayGlyph.Glyph = _paused ? Ui.G.Play : Ui.G.Pause;
+                if (!_paused) KickChrome();
                 break;
             case "eof-reached":
                 if (value is true) OnReachedEnd();
@@ -160,69 +156,70 @@ public sealed partial class MainWindow
                 break;
             case "speed":
                 _speed = value as double? ?? 1;
-                SpeedButton.Content = _speed.ToString("0.##", CultureInfo.InvariantCulture) + "×";
+                _chrome.SpeedText.Text = _editor.SpeedText.Text = _speed.ToString("0.##", CultureInfo.InvariantCulture) + "×";
                 break;
             case "ab-loop-a":
                 _loopA = value as double?;
-                Timeline.SetLoop(_loopA, _loopB);
+                _chrome.Seek.SetLoop(_loopA, _loopB);
                 break;
             case "ab-loop-b":
                 _loopB = value as double?;
-                Timeline.SetLoop(_loopA, _loopB);
-                break;
-            case "path":
-                // Something other than us changed the file (e.g. a drop handled inside mpv): follow it.
-                if (value is string path && _loadedPath is not null && !FolderScanner.PathEquals(path, _loadedPath) && File.Exists(path))
-                    OpenPaths(new[] { path });
+                _chrome.Seek.SetLoop(_loopA, _loopB);
                 break;
         }
     }
 
-    // ---- opening --------------------------------------------------------------------------
+    // ---- opening -----------------------------------------------------------------------------
 
+    /// <summary>Opens files/folders from the command line, a drop, a picker or Explorer.</summary>
     public void OpenPaths(IReadOnlyList<string> paths)
     {
         if (_closed) return;
         OpenRequest request;
-        try
-        {
-            request = OpenRequest.Resolve(paths, Settings.Sort, Settings.SortDescending);
-        }
+        try { request = OpenRequest.Resolve(paths, Settings.Sort, Settings.SortDescending); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            ShowStatus(Loc.F("Error.Open", e.Message));
+            ShowToast(Loc.F("Error.Open", e.Message));
             return;
         }
 
+        // A single folder: browse it.
+        if (paths.Count == 1 && Directory.Exists(paths[0]))
+        {
+            _ = LoadFolderAsync(paths[0], null);
+            if (_mode != AppMode.Folder) SetMode(AppMode.Folder);
+            return;
+        }
         if (request.Items.Count == 0)
         {
-            // Only subtitles were dropped on a playing video: attach them.
             if (request.Subtitles.Count > 0 && _mpv is not null && _fileReady)
             {
                 foreach (var sub in request.Subtitles) _mpv.TryCommand("sub-add", sub, "select");
-                ShowOsd(Loc.T("Osd.SubtitleLoaded"));
+                ShowToast(Loc.T("Osd.SubtitleLoaded"));
             }
-            else
-            {
-                ShowStatus(Loc.T("Error.NothingToOpen"));
-            }
+            else ShowToast(Loc.T("Error.NothingToOpen"));
             return;
         }
-
         StopSlideshow();
         _pendingSubtitles = request.Subtitles;
         _queue.Load(request.Items, request.Index, request.Source);
-        if (_queue.Shuffle != ShuffleItem.IsChecked) _queue.Shuffle = ShuffleItem.IsChecked;
+        var first = _queue.Current!;
+        var folder = System.IO.Path.GetDirectoryName(first.Path);
+        if (folder is not null && Directory.Exists(folder) && !SameFolder(folder, _gallery.Folder)) _ = LoadFolderAsync(folder, first.Path);
         LoadCurrent();
-        RefreshPlaylistPanel();
+        if (_mode == AppMode.Folder) SetMode(AppMode.Play);
+        else if (_mode == AppMode.Edit && _kind != MediaKind.Video) SetMode(AppMode.Play);
+        else if (_mode == AppMode.Edit) EnterEditData();
     }
+
+    private static bool SameFolder(string? a, string? b) =>
+        a is not null && b is not null && FolderScanner.PathEquals(System.IO.Path.TrimEndingDirectorySeparator(a), System.IO.Path.TrimEndingDirectorySeparator(b));
 
     /// <summary>Shows the queue's current item.</summary>
     private void LoadCurrent()
     {
         var item = _queue.Current;
         if (item is null) return;
-
         SaveResumePosition();
         RememberSegments();
         if (_cropMode) EndCrop();
@@ -236,16 +233,15 @@ public sealed partial class MainWindow
         _userRotation = 0;
         _keyframes = null;
         _probe = null;
-        Timeline.Duration = 0;
-        Timeline.Position = 0;
-        Timeline.SetLoop(null, null);
-        PositionText.Text = DurationText.Text = "00:00";
+        _chrome.Seek.Duration = 0;
+        _chrome.Seek.Position = 0;
+        _chrome.Seek.SetLoop(null, null);
+        _chrome.TimeText.Text = "00:00 / 00:00";
+        _chrome.SetKind(video: IsTimed, animated: _kind == MediaKind.AnimatedImage);
         RestoreSegments(item.Path);
-
         UpdateTitle();
-        UpdateModeUi();
-        UpdateVideoHostVisibility();
-        SyncPlaylistSelection();
+        UpdateModeAvailability();
+        _gallery.FocusPath(item.Path);
 
         if (_mpv is not null)
         {
@@ -256,18 +252,15 @@ public sealed partial class MainWindow
             _mpv.Set("ab-loop-a", "no");
             _mpv.Set("ab-loop-b", "no");
             _mpv.Set("speed", 1.0);
-            _mpv.Set("loop-file", _kind == MediaKind.AnimatedImage || LoopFileItem.IsChecked ? "inf" : "no");
-            _mpv.Set("pause", false);
-
+            _mpv.Set("loop-file", _kind == MediaKind.AnimatedImage || _loopFile ? "inf" : "no");
+            _mpv.Set("pause", _mode == AppMode.Edit);
             double? resume = IsTimed && Settings.ResumePlayback && !_slideshowOn ? _resume.GetPosition(item.Path) : null;
             _mpv.Set("start", resume is double r ? r.ToString("0.###", CultureInfo.InvariantCulture) : "none");
-            if (!_mpv.TryCommand("loadfile", item.Path))
-                ShowStatus(Loc.F("Error.Open", item.FileName));
+            if (!_mpv.TryCommand("loadfile", item.Path)) ShowToast(Loc.F("Error.Open", item.FileName));
+            _host?.SetVisible(_mode != AppMode.Folder);
         }
-
-        // Warm the neighbours so the next arrow press opens without disk latency.
         _ = _preloader.Preload(_queue.Peek(1), _queue.Peek(-1));
-        if (_panel == SidePanelKind.Info) RefreshInfoPanel();
+        if (_chrome.InfoPanel.Visibility == Visibility.Visible) RefreshInfoPanel();
     }
 
     private void OnFileLoaded()
@@ -278,42 +271,44 @@ public sealed partial class MainWindow
         _host?.DisableChildInput();
         foreach (var sub in _pendingSubtitles) _mpv.TryCommand("sub-add", sub, "select");
         _pendingSubtitles = new List<string>();
-
+        var hw = _mpv.GetString("hwdec-current");
+        _chrome.ChipText.Text = IsTimed
+            ? (hw is { Length: > 0 } && hw != "no" ? Loc.F("Chip.Hardware", hw.ToUpperInvariant()) : Loc.T("Chip.Software"))
+            : $"{_mpv.GetLong("video-params/w")} × {_mpv.GetLong("video-params/h")}";
         if (_kind.IsImageLike()) OnViewportResized();
-        if (_editMode && _kind == MediaKind.Video) _ = LoadKeyframesAsync();
-        if (_panel == SidePanelKind.Info) RefreshInfoPanel();
+        if (_mode == AppMode.Edit) EnterEditData();
+        if (_chrome.InfoPanel.Visibility == Visibility.Visible) RefreshInfoPanel();
         if (_slideshowOn) ScheduleSlideshow();
     }
 
     private void OnEndFile(MpvEndFileReason reason)
     {
         if (reason != MpvEndFileReason.Error) return;
-        var name = _queue.Current?.FileName ?? "";
         Log.Write("mpv could not play: " + _loadedPath);
-        ShowStatus(Loc.F("Error.Play", name));
+        ShowToast(Loc.F("Error.Play", _queue.Current?.FileName ?? ""));
         if (_slideshowOn) SlideshowAdvance();
     }
 
-    /// <summary>keep-open stopped on the last frame.</summary>
     private void OnReachedEnd()
     {
         if (!IsTimed || !_fileReady) return;
         _resume.Forget(_loadedPath ?? "");
         if (_slideshowOn) { SlideshowAdvance(); return; }
-        // A playlist plays through; a folder gallery stays on the finished video.
         if (_queue.Source == QueueSource.Playlist && _queue.PeekIndex(1) > _queue.CurrentIndex) Navigate(1);
     }
 
     private void SaveResumePosition()
     {
-        if (_loadedPath is null || !IsTimed || !_fileReady || _kind != MediaKind.Video) return;
+        if (_loadedPath is null || !_fileReady || _kind != MediaKind.Video) return;
         if (Settings.ResumePlayback) _resume.Update(_loadedPath, _position, _duration);
     }
 
     private void Navigate(int delta)
     {
         var item = delta > 0 ? _queue.Next() : _queue.Previous();
-        if (item is not null) LoadCurrent();
+        if (item is null) return;
+        LoadCurrent();
+        if (_mode == AppMode.Edit && _kind != MediaKind.Video) SetMode(AppMode.Play);
     }
 
     private void JumpTo(int index)
@@ -322,7 +317,7 @@ public sealed partial class MainWindow
         if (_queue.MoveTo(index) is not null) LoadCurrent();
     }
 
-    // ---- transport ------------------------------------------------------------------------
+    // ---- transport ---------------------------------------------------------------------------
 
     private void TogglePause()
     {
@@ -332,7 +327,6 @@ public sealed partial class MainWindow
             if (_kind == MediaKind.AnimatedImage) _mpv.TryCommand("cycle", "pause");
             return;
         }
-        // At the end of the file "play" means "play again".
         if (_paused && _mpv.GetFlag("eof-reached") == true) _mpv.TryCommand("seek", "0", "absolute");
         _mpv.Set("pause", !_paused);
     }
@@ -340,21 +334,14 @@ public sealed partial class MainWindow
     private void SeekRelative(double seconds, bool exact = false)
     {
         if (_mpv is null || !IsTimed) return;
-        _mpv.TryCommand("seek", seconds.ToString(CultureInfo.InvariantCulture), exact || _editMode ? "relative+exact" : "relative");
+        _mpv.TryCommand("seek", seconds.ToString(CultureInfo.InvariantCulture), exact || _mode == AppMode.Edit ? "relative+exact" : "relative");
+        KickChrome();
     }
 
     private void SeekAbsolute(double seconds, bool exact)
     {
         if (_mpv is null || !IsTimed) return;
-        _mpv.TryCommand("seek", Math.Max(0, seconds).ToString("0.######", CultureInfo.InvariantCulture),
-            exact ? "absolute+exact" : "absolute+keyframes");
-    }
-
-    private void Timeline_SeekRequested(double seconds, bool final)
-    {
-        // Scrub on keyframes for speed, land exactly on release (always exact while editing).
-        SeekAbsolute(seconds, exact: final || _editMode);
-        OnPosition(seconds);
+        _mpv.TryCommand("seek", Math.Max(0, seconds).ToString("0.######", CultureInfo.InvariantCulture), exact ? "absolute+exact" : "absolute+keyframes");
     }
 
     private void FrameStep(bool forward)
@@ -368,7 +355,7 @@ public sealed partial class MainWindow
         if (_mpv is null || !IsTimed) return;
         speed = SpeedSteps.Clamp(speed);
         _mpv.Set("speed", speed);
-        ShowOsd(Loc.F("Osd.Speed", speed.ToString("0.##", CultureInfo.InvariantCulture)));
+        ShowToast(Loc.F("Osd.Speed", speed.ToString("0.##", CultureInfo.InvariantCulture)));
     }
 
     private void ChangeVolume(double delta)
@@ -376,30 +363,19 @@ public sealed partial class MainWindow
         if (_mpv is null) return;
         double v = Math.Clamp(_volume + delta, 0, 150);
         _mpv.Set("volume", v);
-        ShowOsd(Loc.F("Osd.Volume", Math.Round(v)));
+        ShowToast(Loc.F("Osd.Volume", Math.Round(v)));
     }
 
-    private void ToggleMute()
-    {
-        if (_mpv is null) return;
-        _mpv.Set("mute", !_muted);
-    }
+    private void ToggleMute() => _mpv?.Set("mute", !_muted);
 
     private void UpdateVolumeUi()
     {
         _suppressVolumeEvent = true;
-        VolumeSlider.Value = Math.Min(100, _volume);
+        _chrome.Volume.Value = Math.Min(100, _volume);
         _suppressVolumeEvent = false;
-        VolumeIcon.Glyph = _muted || _volume <= 0 ? "" : "";
+        _chrome.VolumeGlyph.Glyph = _muted || _volume <= 0 ? Ui.G.Mute : Ui.G.Volume;
         Settings.Volume = _volume;
         Settings.Muted = _muted;
-    }
-
-    private void VolumeSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
-    {
-        if (_suppressVolumeEvent || _mpv is null) return;
-        _mpv.Set("volume", e.NewValue);
-        if (_muted && e.NewValue > 0) _mpv.Set("mute", false);
     }
 
     private void CycleAbLoop()
@@ -408,9 +384,18 @@ public sealed partial class MainWindow
         _mpv.TryCommand("ab-loop");
         var a = _mpv.GetDouble("ab-loop-a");
         var b = _mpv.GetDouble("ab-loop-b");
-        ShowOsd(a is null ? Loc.T("Osd.AbCleared")
+        ShowToast(a is null ? Loc.T("Osd.AbCleared")
             : b is null ? Loc.F("Osd.AbA", TimeFormat.Clock(a.Value, true))
             : Loc.F("Osd.AbB", TimeFormat.Clock(a.Value, true), TimeFormat.Clock(b.Value, true)));
+    }
+
+    private bool _loopFile;
+
+    private void ToggleLoopFile()
+    {
+        _loopFile = !_loopFile;
+        _mpv?.Set("loop-file", _loopFile || _kind == MediaKind.AnimatedImage ? "inf" : "no");
+        ShowToast(Loc.T(_loopFile ? "Osd.LoopOn" : "Osd.LoopOff"));
     }
 
     private void TakeScreenshot(bool withSubtitles)
@@ -419,50 +404,30 @@ public sealed partial class MainWindow
         string dir = _mpv.GetString("screenshot-directory") ?? AppPaths.DefaultScreenshotDirectory;
         TryRun(() => Directory.CreateDirectory(dir), "screenshot dir");
         bool ok = _mpv.TryCommand("screenshot", withSubtitles ? "subtitles" : "video");
-        ShowOsd(ok ? Loc.F("Osd.Screenshot", dir) : Loc.T("Osd.ScreenshotFailed"));
+        ShowToast(ok ? Loc.F("Osd.Screenshot", dir) : Loc.T("Osd.ScreenshotFailed"));
     }
 
-    private void ShowOsd(string text) => _mpv?.TryCommand("show-text", text, "1500");
+    // ---- menus -------------------------------------------------------------------------------
 
-    // ---- tracks ---------------------------------------------------------------------------
-
-    private void SpeedMenu_Opening(object? sender, object e)
+    private void BuildSpeedMenu()
     {
-        SpeedMenu.Items.Clear();
+        _chrome.SpeedMenu.Items.Clear();
         foreach (var preset in SpeedSteps.Presets)
         {
-            var item = new RadioMenuFlyoutItem
-            {
-                Text = preset.ToString("0.##", CultureInfo.InvariantCulture) + "×",
-                GroupName = "speed",
-                IsChecked = Math.Abs(preset - _speed) < 0.001,
-            };
-            double value = preset;
-            item.Click += (_, _) => SetSpeed(value);
-            SpeedMenu.Items.Add(item);
+            var item = new RadioMenuFlyoutItem { Text = preset.ToString("0.##", CultureInfo.InvariantCulture) + "×", GroupName = "speed", IsChecked = Math.Abs(preset - _speed) < 0.001 };
+            double v = preset;
+            item.Click += (_, _) => SetSpeed(v);
+            _chrome.SpeedMenu.Items.Add(item);
         }
     }
 
-    private void AudioMenu_Opening(object? sender, object e) => BuildTrackMenu(AudioMenu, "audio", "aid");
-
-    private void SubtitleMenu_Opening(object? sender, object e)
-    {
-        BuildTrackMenu(SubtitleMenu, "sub", "sid");
-        SubtitleMenu.Items.Add(new MenuFlyoutSeparator());
-        var load = new MenuFlyoutItem { Text = Loc.T("Menu.LoadSubtitle") };
-        load.Click += async (_, _) => await LoadSubtitleAsync();
-        SubtitleMenu.Items.Add(load);
-    }
-
-    private void BuildTrackMenu(MenuFlyout menu, string type, string property)
+    private void BuildTrackMenu(MenuFlyout menu, string type, string property, bool subtitles)
     {
         menu.Items.Clear();
         var tracks = _mpv?.GetTracks().Where(t => t.Type == type).ToList() ?? new List<MpvTrack>();
-
         var off = new RadioMenuFlyoutItem { Text = Loc.T("Menu.TrackOff"), GroupName = type, IsChecked = !tracks.Any(t => t.Selected) };
         off.Click += (_, _) => _mpv?.Set(property, "no");
         menu.Items.Add(off);
-
         foreach (var track in tracks)
         {
             var item = new RadioMenuFlyoutItem { Text = track.DisplayName, GroupName = type, IsChecked = track.Selected };
@@ -470,6 +435,30 @@ public sealed partial class MainWindow
             item.Click += (_, _) => _mpv?.Set(property, id.ToString(CultureInfo.InvariantCulture));
             menu.Items.Add(item);
         }
+        if (subtitles)
+        {
+            menu.Items.Add(new MenuFlyoutSeparator());
+            var load = new MenuFlyoutItem { Text = Loc.T("Menu.LoadSubtitle") };
+            load.Click += async (_, _) => await LoadSubtitleAsync();
+            menu.Items.Add(load);
+        }
+    }
+
+    private void BuildMoreMenu()
+    {
+        var m = _chrome.MoreMenu;
+        m.Items.Clear();
+        void Add(string key, Action a, bool enabled = true) { var i = new MenuFlyoutItem { Text = Loc.T(key), IsEnabled = enabled }; i.Click += (_, _) => a(); m.Items.Add(i); }
+        Add("Menu.Screenshot", () => TakeScreenshot(true));
+        Add("Menu.AbLoop", CycleAbLoop, IsTimed);
+        var loop = new ToggleMenuFlyoutItem { Text = Loc.T("Menu.LoopFile"), IsChecked = _loopFile };
+        loop.Click += (_, _) => ToggleLoopFile();
+        m.Items.Add(loop);
+        Add("Bar.Slideshow", ToggleSlideshow);
+        m.Items.Add(new MenuFlyoutSeparator());
+        Add("Mode.Edit", () => RequestMode(AppMode.Edit), _kind == MediaKind.Video);
+        Add("Menu.ShowInExplorer", () => RevealInExplorer(_queue.Current?.Path));
+        Add("Menu.SavePlaylist", () => _ = SavePlaylistAsync());
     }
 
     private void CycleTrack(string property, string osdKey)
@@ -478,49 +467,77 @@ public sealed partial class MainWindow
         _mpv.TryCommand("cycle", property);
         string type = property == "aid" ? "audio" : "sub";
         var selected = _mpv.GetTracks().FirstOrDefault(t => t.Type == type && t.Selected);
-        ShowOsd(Loc.F(osdKey, selected?.DisplayName ?? Loc.T("Menu.TrackOff")));
+        ShowToast(Loc.F(osdKey, selected?.DisplayName ?? Loc.T("Menu.TrackOff")));
     }
 
-    // ---- button handlers ------------------------------------------------------------------
-
-    private void PlayPause_Click(object sender, RoutedEventArgs e) => TogglePause();
-    private void Previous_Click(object sender, RoutedEventArgs e) => Navigate(-1);
-    private void Next_Click(object sender, RoutedEventArgs e) => Navigate(1);
-    private void FrameBack_Click(object sender, RoutedEventArgs e) => FrameStep(false);
-    private void FrameForward_Click(object sender, RoutedEventArgs e) => FrameStep(true);
-    private void Mute_Click(object sender, RoutedEventArgs e) => ToggleMute();
-    private void Screenshot_Click(object sender, RoutedEventArgs e) => TakeScreenshot(true);
-    private void AbLoop_Click(object sender, RoutedEventArgs e) => CycleAbLoop();
-
-    private void LoopFile_Click(object sender, RoutedEventArgs e) =>
-        _mpv?.Set("loop-file", LoopFileItem.IsChecked || _kind == MediaKind.AnimatedImage ? "inf" : "no");
-
-    private void Shuffle_Click(object sender, RoutedEventArgs e)
+    private void Host_MouseDown(HostButton button, int x, int y)
     {
-        _queue.Shuffle = ShuffleItem.IsChecked;
-        _ = _preloader.Preload(_queue.Peek(1), _queue.Peek(-1));
+        if (_mode == AppMode.Edit)
+        {
+            if (button == HostButton.Left) TogglePause();
+            return;
+        }
+        KickChrome();
+        switch (button)
+        {
+            case HostButton.Left:
+                _dragging = true;
+                (_dragX, _dragY) = (x, y);
+                if (_cropMode) CropStart(x, y);
+                break;
+            case HostButton.Right: if (IsTimed) TogglePause(); break;
+            case HostButton.Middle: if (_kind.IsImageLike()) ZoomFit(); break;
+            case HostButton.Back: Navigate(-1); break;
+            case HostButton.Forward: Navigate(1); break;
+        }
     }
 
-    /// <summary>Shows the controls that make sense for the current kind of media.</summary>
-    private void UpdateModeUi()
+    private void Host_MouseMove(int x, int y)
     {
-        bool has = _queue.Current is not null;
-        bool timed = has && IsTimed;
-        bool image = has && _kind.IsImageLike();
-        bool video = has && _kind == MediaKind.Video;
+        KickChrome();
+        if (!_dragging || _mode != AppMode.Play) return;
+        if (_cropMode) CropDrag(x, y);
+        else if (_kind.IsImageLike())
+        {
+            PanBy(x - _dragX, y - _dragY);
+            (_dragX, _dragY) = (x, y);
+        }
+    }
 
-        if (!video && _editMode) SetEditMode(false);
-        EmptyState.Visibility = has && _mpv is not null ? Visibility.Collapsed : Visibility.Visible;
-        TimelineRow.Visibility = timed ? Visibility.Visible : Visibility.Collapsed;
-        VideoTools.Visibility = timed ? Visibility.Visible : Visibility.Collapsed;
-        VideoTransport.Visibility = VideoTransport2.Visibility = video ? Visibility.Visible : Visibility.Collapsed;
-        ImageTools.Visibility = _kind == MediaKind.Image && has ? Visibility.Visible : Visibility.Collapsed;
-        ZoomTools.Visibility = image ? Visibility.Visible : Visibility.Collapsed;
-        PlayButton.Visibility = timed || (has && _kind == MediaKind.AnimatedImage) ? Visibility.Visible : Visibility.Collapsed;
-        EditToggle.Visibility = video ? Visibility.Visible : Visibility.Collapsed;
-        AbLoopItem.IsEnabled = timed;
-        EditBar.Visibility = _editMode && video ? Visibility.Visible : Visibility.Collapsed;
-        SaveImageButton.IsEnabled = false;
-        UpdateZoomText();
+    private void Host_Wheel(double notches, int x, int y, bool ctrl)
+    {
+        if (_mode == AppMode.Edit) { SeekRelative(notches * (ctrl ? 5 : 1), exact: true); return; }
+        if (_kind.IsImageLike()) ZoomAt(notches * 0.2, x, y);
+        else if (ctrl) SeekRelative(notches * 5);
+        else ChangeVolume(notches * 5);
+    }
+
+    private void WireChrome()
+    {
+        _chrome.PreviewKeyDown += (_, e) => OnKey(e);
+        _chrome.Command += Execute;
+        _chrome.Seek.SeekRequested += (t, final) => { SeekAbsolute(t, exact: final); OnPosition(t); KickChrome(); };
+        _chrome.Volume.ValueChanged += (_, e) =>
+        {
+            if (_suppressVolumeEvent || _mpv is null) return;
+            _mpv.Set("volume", e.NewValue);
+            if (_muted && e.NewValue > 0) _mpv.Set("mute", false);
+        };
+        _chrome.SpeedMenu.Opening += (_, _) => BuildSpeedMenu();
+        _chrome.SubsMenu.Opening += (_, _) => BuildTrackMenu(_chrome.SubsMenu, "sub", "sid", subtitles: true);
+        _chrome.AudioMenu.Opening += (_, _) => BuildTrackMenu(_chrome.AudioMenu, "audio", "aid", subtitles: false);
+        _chrome.MoreMenu.Opening += (_, _) => BuildMoreMenu();
+        _chrome.DragWindow += DragFromOverlay;
+        _chrome.MaximizeToggle += ToggleMaximize;
+        _chrome.MinimizeRequested += () => { if (AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter p) p.Minimize(); };
+        _chrome.CloseRequested += Close;
+        _chrome.Dock.PointerEntered += (_, _) => _pointerOverDock = true;
+        _chrome.Dock.PointerExited += (_, _) => _pointerOverDock = false;
+        _chrome.PointerMoved += Chrome_PointerMoved;
+        _chrome.PointerPressed += Chrome_PointerPressed;
+        _chrome.PointerReleased += Chrome_PointerReleased;
+        _chrome.PointerWheelChanged += Chrome_PointerWheel;
+        _chrome.DoubleTapped += (_, e) => { if (!_chrome.PointerOverChrome(e)) SetFullscreen(!_isFullscreen); };
+        _chrome.RightTapped += (_, e) => { if (IsTimed) TogglePause(); };
     }
 }

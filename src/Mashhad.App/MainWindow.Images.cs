@@ -40,7 +40,7 @@ public sealed partial class MainWindow
     {
         if (!_kind.IsImageLike() || _queue.Current is null) return;
         var vp = GetViewport();
-        ZoomButton.Content = vp.IsValid
+        _chrome.ZoomText.Text = vp.IsValid
             ? Math.Round(_view.Percent(vp)).ToString(CultureInfo.InvariantCulture) + "%"
             : "100%";
     }
@@ -90,7 +90,6 @@ public sealed partial class MainWindow
         _userRotation = CropMath.NormalizeRotation(_userRotation + degrees);
         _mpv.Set("video-rotate", _userRotation.ToString(CultureInfo.InvariantCulture));
         ApplyView(ImageView.Fit);
-        SaveImageButton.IsEnabled = _userRotation != 0;
     }
 
     // ---- crop -----------------------------------------------------------------------------
@@ -100,18 +99,17 @@ public sealed partial class MainWindow
         if (_kind != MediaKind.Image || _mpv is null || !_fileReady) return;
         _cropMode = true;
         _cropRect = default;
-        CropBar.Visibility = Visibility.Visible;
-        CropSizeText.Text = "";
-        if (_isFullscreen) ShowFullscreenChrome();
+        _chrome.CropBar.Visibility = Visibility.Visible;
+        _chrome.CropSizeText.Text = "";
+        KickChrome();
     }
 
     private void EndCrop()
     {
         _cropMode = false;
         _cropRect = default;
-        CropBar.Visibility = Visibility.Collapsed;
+        _chrome.CropBar.Visibility = Visibility.Collapsed;
         _mpv?.TryCommand("osd-overlay", "1", "none", "");
-        SaveImageButton.IsEnabled = _userRotation != 0;
     }
 
     private void CropStart(int x, int y)
@@ -125,7 +123,7 @@ public sealed partial class MainWindow
     {
         var vp = GetViewport();
         _cropRect = CropMath.WindowToImage(vp, _view, _cropAnchor.X, _cropAnchor.Y, x, y);
-        CropSizeText.Text = _cropRect.IsEmpty ? "" : $"{_cropRect.Width} × {_cropRect.Height}";
+        _chrome.CropSizeText.Text = _cropRect.IsEmpty ? "" : $"{_cropRect.Width} × {_cropRect.Height}";
         DrawCropOverlay();
     }
 
@@ -152,7 +150,7 @@ public sealed partial class MainWindow
         PixelRect? crop = _cropMode && !_cropRect.IsEmpty ? _cropRect : null;
         if (crop is null && _userRotation == 0)
         {
-            ShowStatus(Loc.T(_cropMode ? "Crop.SelectFirst" : "Image.NothingToSave"));
+            ShowToast(Loc.T(_cropMode ? "Crop.SelectFirst" : "Image.NothingToSave"));
             return;
         }
         if (!EnsureTools(out var runner)) return;
@@ -167,16 +165,4 @@ public sealed partial class MainWindow
         if (_cropMode) EndCrop();
     }
 
-    private static string? NullIfEmpty(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
-
-    private void ZoomIn_Click(object sender, RoutedEventArgs e) => ZoomBy(0.25);
-    private void ZoomOut_Click(object sender, RoutedEventArgs e) => ZoomBy(-0.25);
-    private void ZoomFit_Click(object sender, RoutedEventArgs e) => ZoomFit();
-    private void ZoomActual_Click(object sender, RoutedEventArgs e) => ZoomActual();
-    private void RotateCw_Click(object sender, RoutedEventArgs e) => Rotate(90);
-    private void RotateCcw_Click(object sender, RoutedEventArgs e) => Rotate(-90);
-    private void Crop_Click(object sender, RoutedEventArgs e) { if (_cropMode) EndCrop(); else BeginCrop(); }
-    private void CropApply_Click(object sender, RoutedEventArgs e) => _ = SaveImageAsync();
-    private void CropCancel_Click(object sender, RoutedEventArgs e) => EndCrop();
-    private void SaveImage_Click(object sender, RoutedEventArgs e) => _ = SaveImageAsync();
 }

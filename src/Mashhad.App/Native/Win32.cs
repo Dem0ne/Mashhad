@@ -67,6 +67,10 @@ internal static class Win32
     [DllImport("user32.dll")] public static extern IntPtr SetCursor(IntPtr cursor);
     [DllImport("user32.dll")] public static extern bool PostMessageW(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+    [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hwnd, ref POINT point);
+    [DllImport("user32.dll")] public static extern IntPtr SendMessageW(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+    public const uint WM_NCLBUTTONDOWN = 0x00A1;
+    public const int HTCAPTION = 2;
     [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern short GetKeyState(int vk);
     [DllImport("gdi32.dll")] public static extern IntPtr GetStockObject(int index);

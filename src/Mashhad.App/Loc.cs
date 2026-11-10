@@ -32,6 +32,12 @@ public static class L
     public static readonly DependencyProperty TextProperty = DependencyProperty.RegisterAttached(
         "Text", typeof(string), typeof(L), new PropertyMetadata(null, OnChanged));
 
+    public static readonly DependencyProperty PlaceholderProperty = DependencyProperty.RegisterAttached(
+        "Placeholder", typeof(string), typeof(L), new PropertyMetadata(null, OnChanged));
+
+    public static string GetPlaceholder(DependencyObject o) => (string)o.GetValue(PlaceholderProperty);
+    public static void SetPlaceholder(DependencyObject o, string value) => o.SetValue(PlaceholderProperty, value);
+
     public static readonly DependencyProperty TipProperty = DependencyProperty.RegisterAttached(
         "Tip", typeof(string), typeof(L), new PropertyMetadata(null, OnChanged));
 
@@ -70,6 +76,8 @@ public static class L
                 case ContentControl cc: cc.Content = s; break;
             }
         }
+        if (d.GetValue(PlaceholderProperty) is string phKey && d is TextBox box)
+            box.PlaceholderText = Loc.T(phKey);
         if (d.GetValue(TipProperty) is string tipKey)
         {
             string s = Loc.T(tipKey);
