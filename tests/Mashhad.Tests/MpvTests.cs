@@ -98,8 +98,11 @@ public class MpvIntegrationTests
 
         mpv.Command("seek", "1.5", "absolute+exact");
         Assert.True(WaitFor(() => mpv.GetDouble("time-pos") is double t && Math.Abs(t - 1.5) < 0.1));
+        Thread.Sleep(300); // let the exact seek settle on its frame (1.48 or 1.52)
+        double before = mpv.GetDouble("time-pos")!.Value;
         mpv.Command("frame-step");
-        Assert.True(WaitFor(() => mpv.GetDouble("time-pos") is double t && t > 1.52 && t < 1.6));
+        Assert.True(WaitFor(() => mpv.GetDouble("time-pos") is double t && t > before + 0.03 && t < before + 0.09),
+            "frame-step should advance exactly one 40 ms frame");
 
         Assert.True(mpv.Set("speed", 4.0));
         Assert.Equal(4.0, mpv.GetDouble("speed"));

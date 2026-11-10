@@ -67,7 +67,11 @@ internal static unsafe class MpvNative
     private static IntPtr Resolve(string name, Assembly assembly, DllImportSearchPath? path)
     {
         if (name != Lib) return IntPtr.Zero;
-        var dirs = new List<string?> { SearchDirectory, AppContext.BaseDirectory, Path.Combine(AppContext.BaseDirectory, "mpv") };
+        var dirs = new List<string?>
+        {
+            SearchDirectory, Environment.GetEnvironmentVariable("MASHHAD_MPV_DIR"),
+            AppContext.BaseDirectory, Path.Combine(AppContext.BaseDirectory, "mpv"),
+        };
         foreach (var dir in dirs)
         {
             if (string.IsNullOrEmpty(dir)) continue;

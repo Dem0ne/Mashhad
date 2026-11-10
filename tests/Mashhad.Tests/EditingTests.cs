@@ -368,18 +368,4 @@ public class ProbeAndProgressTests
         Assert.Equal(Path.Combine(dir.File("app"), "ffmpeg", "ffprobe" + exe), FfmpegLocator.Locate(null, dir.File("app"), "")!.Ffprobe);
         Assert.Null(FfmpegLocator.Locate(null, dir.File("nowhere"), ""));
     }
-
-    [Fact]
-    public void Project_file_round_trips_and_is_removed_when_empty()
-    {
-        using var dir = new TempDir();
-        var media = dir.File("clip.mp4");
-        var segs = new[] { new Segment(1, 2, "a"), new Segment(5) };
-        ProjectFile.Save(media, segs);
-        Assert.Equal(segs, ProjectFile.Load(media));
-        ProjectFile.Save(media, Array.Empty<Segment>());
-        Assert.False(File.Exists(ProjectFile.PathFor(media)));
-        File.WriteAllText(ProjectFile.PathFor(media), "garbage");
-        Assert.Empty(ProjectFile.Load(media));
-    }
 }

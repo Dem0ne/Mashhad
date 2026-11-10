@@ -28,6 +28,28 @@ public class MediaTypesTests
     }
 }
 
+public class InstallerAssociationTests
+{
+    /// <summary>The installer must register every format the app claims to open (bar a few niche image types).</summary>
+    [Fact]
+    public void Installer_registers_the_formats_the_app_supports()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Mashhad.sln"))) dir = dir.Parent;
+        var iss = File.ReadAllText(Path.Combine(dir!.FullName, "installer", "Mashhad.iss"));
+
+        var notAssociated = new[] { ".ico", ".dds", ".tga", ".qoi" };
+        var expected = MediaTypes.ImageExtensions.Concat(MediaTypes.AnimatedImageExtensions)
+            .Concat(MediaTypes.VideoExtensions).Concat(MediaTypes.AudioExtensions).Except(notAssociated);
+        foreach (var ext in expected)
+        {
+            Assert.Contains($@"Software\Classes\{ext}\OpenWithProgids".Replace(@"\\", @"\"), iss);
+            Assert.Contains($"ValueName: \"{ext}\"; ValueData: \"Mashhad.", iss);
+        }
+        Assert.DoesNotContain(@"Classes\.exe".Replace(@"\\", @"\"), iss);
+    }
+}
+
 public class NaturalComparerTests
 {
     [Fact]

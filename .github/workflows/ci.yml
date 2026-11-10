@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Core + Editing tests (Linux, real FFmpeg and libmpv)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Install FFmpeg and libmpv
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libmpv2
+      - name: Test
+        run: dotnet test tests/Mashhad.Tests -c Release --logger "console;verbosity=normal"
+
+  windows:
+    name: Build, test, smoke-run and package (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Fetch libmpv and FFmpeg
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./scripts/fetch-deps.ps1
+
+      - name: Test (Windows FFmpeg and libmpv)
+        shell: pwsh
+        run: |
+          $env:MASHHAD_FFMPEG_DIR = "$PWD\native\ffmpeg"
+          $env:MASHHAD_MPV_DIR = "$PWD\native\mpv"
+          dotnet test tests/Mashhad.Tests -c Release --logger "console;verbosity=normal"
+
+      - name: Publish, zip and build installer
+        shell: pwsh
+        run: ./scripts/build.ps1 -SkipDeps -Zip -Installer
+
+      - name: Smoke-run the app (window, engine, real playback)
+        shell: pwsh
+        run: |
+          $exe = "$PWD\publish\Mashhad\Mashhad.exe"
+          $ffmpeg = "$PWD\native\ffmpeg\ffmpeg.exe"
+          New-Item -ItemType Directory -Force smoke | Out-Null
+          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=640x360:rate=30:duration=6" -f lavfi -i "sine=frequency=440:duration=6" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "smoke\فيديو sample.mp4"
+          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=1280x720:rate=1" -frames:v 1 -update 1 "smoke\photo.png"
+          if (-not (Test-Path "smoke\photo.png")) { throw "could not create test media" }
+
+          $failed = $false
+          $cases = @(
+            @{ Name = 'empty'; Args = @() },
+            @{ Name = 'video'; Args = @("$PWD\smoke\فيديو sample.mp4") },
+            @{ Name = 'image'; Args = @("$PWD\smoke\photo.png") }
+          )
+          foreach ($case in $cases) {
+            $log = "$PWD\smoke\$($case.Name).log"
+            $argList = @('--smoke-test', '--smoke-log', "`"$log`"") + ($case.Args | ForEach-Object { "`"$_`"" })
+            $p = Start-Process -FilePath $exe -ArgumentList $argList -PassThru
+            if (-not $p.WaitForExit(120000)) { $p.Kill(); Write-Host "::error::smoke '$($case.Name)' hung"; $failed = $true }
+            Write-Host "===== smoke: $($case.Name) (exit code $($p.ExitCode)) ====="
+            if (Test-Path $log) { Get-Content $log | Where-Object { $_ -notmatch 'mpv\[(v|debug|trace)\]' } } else { Write-Host "(no log written)" }
+            if ($p.ExitCode -ne 0 -or -not (Test-Path $log) -or -not (Select-String -Path $log -Pattern 'SMOKE RESULT: PASS' -Quiet)) {
+              Write-Host "::error::smoke '$($case.Name)' failed"
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Upload installer and portable zip
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mashhad-windows-x64
+          path: |
+            dist/*.exe
+            dist/*.zip
+          if-no-files-found: warn
+
+      - name: Upload smoke-test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-logs
+          path: smoke/*.log
+          if-no-files-found: ignore
