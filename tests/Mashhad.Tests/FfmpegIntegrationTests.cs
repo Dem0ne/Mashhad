@@ -121,7 +121,8 @@ public class FfmpegIntegrationTests
         Assert.EndsWith("-merged" + ext, merged);
         var all = Tools.FrameHashes(src);
         Assert.Equal(all.Skip(25).Take(50).Concat(all.Skip(150).Take(50)), Tools.FrameHashes(merged));
-        Assert.Equal(4.0, (await runner.ProbeAsync(merged)).Duration, 1);
+        // The frames above are the exact check; container durations vary slightly between muxer versions.
+        Assert.InRange((await runner.ProbeAsync(merged)).Duration, 3.9, 4.2);
         // Only the source and the merged file remain: no part files, no concat list.
         Assert.Equal(2, Directory.GetFiles(dir.Path).Length);
     }
