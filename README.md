@@ -38,6 +38,8 @@ replace both the Windows Photos app and the default video player.
 - **Slideshow** mixing images (timed) and videos (played to the end).
 - **Arabic and English** with a full right-to-left layout, in a dark theme with the crimson brand gradient
   (`#FF5E7E → #E6223F → #8E1035`).
+- **UI font:** [Thmanyah Sans](https://font.thmanyah.com) for Arabic and English (Consolas for timecodes) in
+  official builds; Segoe UI Variable in builds without the font key. See [The UI font](#the-ui-font).
 
 ### Status
 
@@ -183,6 +185,18 @@ Play (real video playback) → Edit (keyframes, waveform, thumbnails, segments, 
 each mode → an image with the info panel. CI screenshots each step and prints the images into the job log. It
 also starts the app empty, on a single video (with and without the overlay window) and on a single image.
 
+### The UI font
+
+Thmanyah Sans may not be redistributed as font files, so the repository only holds it encrypted
+(`assets/fonts/encrypted/*.otf.enc`, AES-256-GCM). In CI, `scripts/embed-font-key.ps1` reads the
+`MASHHAD_FONT_KEY` secret and compiles it into the app in a masked form for that build only (the generated
+file is git-ignored and deleted after the build); the encrypted fonts are embedded as resources in
+`Mashhad.exe`. At start-up the app decrypts them in memory. Because XAML can only load a custom font from a
+file, the decrypted fonts are written with random names to a hidden folder under
+`%LOCALAPPDATA%\Mashhad\Cache`, never to the install folder; they are deleted on exit, or on the next start
+if the text engine still held them. Builds without the secret (local, forks) skip all of this and use
+Segoe UI Variable. The build fails if any `.otf`/`.ttf`/`.enc` file ends up in the output.
+
 ### Known gaps
 
 - The UI has been exercised only by the automated smoke test, **not by a person on a real desktop**: expect
@@ -195,6 +209,8 @@ also starts the app empty, on a single video (with and without the overlay windo
   video+audio+subtitles), chapter editing, renaming segments in the UI, zooming the timeline.
 - HEIC/AVIF depend on the decoders in the bundled libmpv build.
 - x64 only; no MSIX/Store package; no code signing (SmartScreen will warn on the installer).
+- The font key is masked, not secret: a determined person with the binary and a debugger can recover the
+  fonts. The decrypted font files exist in the private cache folder while the app runs.
 
 ---
 
@@ -336,6 +352,16 @@ dotnet test tests/Mashhad.Tests
 على ويندوز يبني الـ CI التطبيق ويشغّل جولة آلية: المجلد ← التشغيل (فيديو حقيقي) ← التحرير ← العربية في كل وضع ←
 صورة مع لوحة المعلومات، ويلتقط صورة لكل خطوة.
 
+### خط الواجهة
+
+خط **ثمانية** ([Thmanyah Sans](https://font.thmanyah.com)) للعربية والإنجليزية، و Consolas للأزمنة. رخصة الخط تمنع
+توزيعه كملفات، لذا لا يحوي المستودع إلا نسخة مشفّرة (AES-256-GCM) في `assets/fonts/encrypted`. في الـ CI يقرأ
+`scripts/embed-font-key.ps1` السر `MASHHAD_FONT_KEY` ويُدرجه في التطبيق مموَّهًا لذلك البناء فقط (الملف المولَّد
+مستثنى من git ويُحذف بعد البناء)، وتُضمَّن الخطوط المشفّرة موارد داخل `Mashhad.exe`. عند التشغيل تُفك في الذاكرة؛
+ولأن XAML لا يحمّل خطًا مخصصًا إلا من ملف، تُكتب بأسماء عشوائية في مجلد مخفي تحت `%LOCALAPPDATA%\Mashhad\Cache`
+— لا في مجلد التثبيت أبدًا — وتُحذف عند الخروج أو عند التشغيل التالي. البناء بلا السر (محليًا أو في نسخة متفرعة)
+يستخدم Segoe UI Variable. ويفشل البناء إن وُجد أي ملف `.otf` أو `.ttf` أو `.enc` في المخرجات.
+
 ### النواقص المعروفة
 
 - الواجهة جُرّبت بالاختبار الآلي فقط، **ولم يجرّبها إنسان على سطح مكتب حقيقي**: توقّع بعض العيوب الشكلية. ولا يمكن
@@ -346,5 +372,7 @@ dotnet test tests/Mashhad.Tests
 - غير منفَّذ بعد: تدوير/قص JPEG بلا فقد، قص الفيديو، اختيار مسارات بعينها عند التصدير، تحرير الفصول، إعادة تسمية
   المقاطع من الواجهة، تكبير الخط الزمني.
 - ‏x64 فقط؛ لا حزمة MSIX؛ المثبِّت غير موقَّع رقميًا.
+- مفتاح الخط مموَّه لا سرّي: من يملك الملف التنفيذي ومنقِّحًا يستطيع استخراج الخطوط. وملفات الخط المفكوكة موجودة
+  في مجلد التخزين المؤقت الخاص أثناء تشغيل التطبيق.
 
 </div>

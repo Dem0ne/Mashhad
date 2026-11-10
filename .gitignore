@@ -8,3 +8,8 @@ artifacts/
 # Native binaries fetched by scripts/fetch-deps.ps1
 native/
 TestResults/
+# Per-build font key (scripts/embed-font-key.ps1); never commit
+src/Mashhad.App/Generated/
+# Licensed fonts must never be committed unencrypted
+*.otf
+*.ttf

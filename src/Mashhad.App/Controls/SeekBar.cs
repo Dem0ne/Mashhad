@@ -40,7 +40,7 @@ public sealed class SeekBar : Grid
         _knob = new Grid { Width = 16, Height = 16 };
         _knob.Children.Add(new Ellipse { Fill = new SolidColorBrush(Colors.White) });
         _knob.Children.Add(new Ellipse { Width = 6, Height = 6, Fill = new SolidColorBrush(Ui.Wine) });
-        _bubbleText = new TextBlock { FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Ui.Wall) };
+        _bubbleText = new TextBlock { FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, FontFamily = Fonts.AppFonts.Mono, Foreground = new SolidColorBrush(Ui.Wall) };
         _bubble = new Border { Child = _bubbleText, Background = new SolidColorBrush(Colors.White), CornerRadius = new CornerRadius(6), Padding = new Thickness(7, 2, 7, 2), Visibility = Visibility.Collapsed };
         foreach (var e in new UIElement[] { _rail, _ab, _played, _knob, _bubble }) _canvas.Children.Add(e);
         Children.Add(_canvas);

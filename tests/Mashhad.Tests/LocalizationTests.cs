@@ -87,7 +87,7 @@ public class LocalizationTests
             "ControlSolidFillColorDefaultBrush", "ControlStrongFillColorDefaultBrush", "LayerFillColorDefaultBrush",
             "CardStrokeColorDefaultBrush", "SolidBackgroundFillColorBaseBrush", "AccentFillColorDefaultBrush",
             "CaptionTextBlockStyle", "BodyStrongTextBlockStyle", "AccentButtonStyle", "DefaultButtonStyle",
-            "DefaultToggleButtonStyle", "SymbolThemeFontFamily",
+            "DefaultToggleButtonStyle", "SymbolThemeFontFamily", "ContentControlThemeFontFamily",
             // overridden per button to keep gradient backgrounds on hover
             "ButtonBackgroundPointerOver", "ButtonBackgroundPressed", "ButtonForegroundPointerOver", "ButtonForegroundPressed",
         };

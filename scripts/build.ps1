@@ -28,8 +28,15 @@ $dist    = Join-Path $root 'dist'
 Remove-Item $publish -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 
-dotnet publish src/Mashhad.App/Mashhad.App.csproj -c $Configuration -r win-x64 -p:Platform=x64 --self-contained true -o $publish
-if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed.' }
+# Thmanyah Sans is compiled in (encrypted) only when MASHHAD_FONT_KEY is set; otherwise Segoe UI Variable.
+& (Join-Path $PSScriptRoot 'embed-font-key.ps1')
+try {
+    dotnet publish src/Mashhad.App/Mashhad.App.csproj -c $Configuration -r win-x64 -p:Platform=x64 --self-contained true -o $publish
+    if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed.' }
+}
+finally { & (Join-Path $PSScriptRoot 'embed-font-key.ps1') -Remove }
+$plainFonts = Get-ChildItem $publish -Recurse -Include '*.otf', '*.ttf', '*.enc' -File
+if ($plainFonts) { throw "Font files must not ship as files: $($plainFonts.Name -join ', ')" }
 Get-ChildItem $publish -Recurse -Filter '*.pdb' | Remove-Item -Force
 
 foreach ($required in 'Mashhad.exe', 'mpv\libmpv-2.dll', 'ffmpeg\ffmpeg.exe', 'ffmpeg\ffprobe.exe') {

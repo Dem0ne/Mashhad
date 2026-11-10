@@ -22,13 +22,13 @@ public sealed class EditView : Grid
     public readonly Border Preview = new() { Background = new SolidColorBrush(Colors.Black), CornerRadius = new CornerRadius(14) };
     public readonly EditTimeline Timeline = new();
     public readonly ListView Bin = new() { SelectionMode = ListViewSelectionMode.Single, Padding = new Thickness(0, 0, 0, 8) };
-    public readonly TextBlock BinTitle = Ui.Text("", 12, true, 0.75), TimeText = Ui.Text("00:00:00.000", 20, true), DurationText = Ui.Text("", 12, false, 0.5);
+    public readonly TextBlock BinTitle = Ui.Text("", 12, true, 0.75), TimeText = Ui.Time("00:00:00.000", 20, true), DurationText = Ui.Time("", 12, false, 0.5);
     public readonly TextBlock SpeedText = Ui.Text("1×", 13, true), KeyframeStatus = Ui.Text("", 12, false, 0.55);
     public readonly FontIcon PlayGlyph;
     public readonly StackPanel SegmentRows = new() { Spacing = 2 };
     public readonly CheckBox Merge = new(), Snap = new(), KeepAll = new();
     public readonly ComboBox Container = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
-    public readonly TextBlock Summary = Ui.Text("", 12.5, false, 0.65), Command = new() { FontFamily = new FontFamily("Cascadia Mono, Consolas"), FontSize = 11, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true, Foreground = Ui.Solid(255, 0xFF, 0xA8, 0xB8) };
+    public readonly TextBlock Summary = Ui.Text("", 12.5, false, 0.65), Command = new() { FontFamily = Fonts.AppFonts.Mono, FontSize = 11, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true, Foreground = Ui.Solid(255, 0xFF, 0xA8, 0xB8) };
     public readonly Button ExportButton;
     public readonly ToggleButton SnapToggle = new();
     public readonly Border Status;
@@ -56,7 +56,6 @@ public sealed class EditView : Grid
         _bin = Card(binGrid);
 
         // ---- transport ----
-        TimeText.FontFamily = new FontFamily("Cascadia Mono, Consolas");
         var play = Ui.PlayButton(42, (_, _) => CommandRequested?.Invoke(PlayerCommand.PlayPause), out PlayGlyph);
         var speed = new Button { Content = SpeedText, Height = 30, MinWidth = 52, CornerRadius = new CornerRadius(15), Background = Ui.White(0.08), BorderThickness = new Thickness(0), IsTabStop = false };
         speed.Click += (_, _) => CommandRequested?.Invoke(PlayerCommand.SpeedUp);
@@ -193,7 +192,7 @@ public sealed class EditView : Grid
             var swatch = new Microsoft.UI.Xaml.Shapes.Rectangle { Width = 9, Height = 9, RadiusX = 2, RadiusY = 2, Fill = new SolidColorBrush(colors[i % 3]) };
             var name = Ui.Text(r.Name, 13, true);
             var times = Ui.Text($"{r.In} → {r.Out}   {r.Dur}", 12, false, 0.7);
-            times.FontFamily = new FontFamily("Cascadia Mono, Consolas");
+            times.FontFamily = Fonts.AppFonts.Mono;
             times.FlowDirection = FlowDirection.LeftToRight;
             g.Children.Add(Ui.Column(2, Ui.Row(8, swatch, name), times));
             int index = i;
@@ -259,7 +258,9 @@ public sealed class EditView : Grid
 
     private Button Tool(string key, string labelKey, PlayerCommand cmd)
     {
-        var kbd = new Border { Child = new TextBlock { Text = key, FontSize = 10.5, FontWeight = FontWeights.SemiBold }, Background = Ui.White(0.1), CornerRadius = new CornerRadius(4), Padding = new Thickness(5, 1, 5, 1) };
+        var kbdText = new TextBlock { Text = key, FontSize = 10.5 };
+        Fonts.AppFonts.Style(kbdText, true, 10.5);
+        var kbd = new Border { Child = kbdText, Background = Ui.White(0.1), CornerRadius = new CornerRadius(4), Padding = new Thickness(5, 1, 5, 1) };
         var b = new Button
         {
             Content = Ui.Row(7, kbd, Ui.LText(labelKey, 12.5)), Height = 30, Padding = new Thickness(8, 0, 10, 0),

@@ -25,6 +25,8 @@ jobs:
       - name: Install FFmpeg and libmpv
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libmpv2
       - name: Test
+        env:
+          MASHHAD_FONT_KEY: ${{ secrets.MASHHAD_FONT_KEY }}
         run: dotnet test tests/Mashhad.Tests -c Release --logger "console;verbosity=normal"
 
   windows:
@@ -44,17 +46,24 @@ jobs:
 
       - name: Test (Windows FFmpeg and libmpv)
         shell: pwsh
+        env:
+          MASHHAD_FONT_KEY: ${{ secrets.MASHHAD_FONT_KEY }}
         run: |
           $env:MASHHAD_FFMPEG_DIR = "$PWD\native\ffmpeg"
           $env:MASHHAD_MPV_DIR = "$PWD\native\mpv"
           dotnet test tests/Mashhad.Tests -c Release --logger "console;verbosity=normal"
 
+      # The font key (if the secret is available) is compiled into the app, masked, for this build only.
       - name: Publish, zip and build installer
         shell: pwsh
+        env:
+          MASHHAD_FONT_KEY: ${{ secrets.MASHHAD_FONT_KEY }}
         run: ./scripts/build.ps1 -SkipDeps -Zip -Installer
 
       - name: Smoke-run the app (tour of every mode, with screenshots)
         shell: pwsh
+        env:
+          EXPECT_BRAND_FONT: ${{ secrets.MASHHAD_FONT_KEY != '' }}
         run: |
           $exe = "$PWD\publish\Mashhad\Mashhad.exe"
           $ffmpeg = "$PWD\native\ffmpeg\ffmpeg.exe"
@@ -140,6 +149,18 @@ jobs:
           }
           Remove-Item Env:MASHHAD_DISABLE_ENGINE, Env:MASHHAD_NO_OVERLAY -ErrorAction SilentlyContinue
 
+          # UI font: Thmanyah Sans when the key was compiled in, Segoe UI Variable otherwise.
+          $fontLine = Select-String -Path "$PWD\smoke\tour.log" -Pattern '^.*FONT: .*$' -ErrorAction SilentlyContinue | Select-Object -First 1
+          Write-Host "UI font: $($fontLine.Line)"
+          if ($env:EXPECT_BRAND_FONT -eq 'true' -and -not ($fontLine -and $fontLine.Line -match 'FONT: thmanyah')) {
+            Write-Host "::error::the build has the font key but the app did not load Thmanyah Sans"; $failed = $true
+          }
+          $fontCache = Join-Path $env:LOCALAPPDATA 'Mashhad\Cache\r'
+          $left = @(Get-ChildItem $fontCache -Recurse -File -Force -ErrorAction SilentlyContinue)
+          Write-Host "Decrypted font files left after exit: $($left.Count) (removed on the next start)"
+          $installFonts = @(Get-ChildItem "$PWD\publish\Mashhad" -Recurse -Force -Include '*.otf', '*.ttf', '*.enc' -File)
+          if ($installFonts.Count -gt 0) { Write-Host "::error::font files in the install folder: $($installFonts.Name -join ', ')"; $failed = $true }
+
           # Print downscaled screenshots into the log (base64 JPEG) so they can be reviewed without artifact access.
           $jpeg = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' }
           $params = New-Object System.Drawing.Imaging.EncoderParameters 1
@@ -177,5 +198,4 @@ jobs:
             smoke/*.log
             smoke/*-analyze.txt
             smoke/snap-*.png
-            smoke/dumps/*.dmp
           if-no-files-found: ignore

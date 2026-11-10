@@ -39,6 +39,12 @@
     <Content Include="Assets\*.png;Assets\*.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Thmanyah Sans, encrypted, only when CI compiled the key in (scripts/embed-font-key.ps1).
+       The fonts stay encrypted inside the .exe and are decrypted in memory at run time. -->
+  <ItemGroup Condition="Exists('Generated\FontKey.g.cs')">
+    <EmbeddedResource Include="..\..\assets\fonts\encrypted\*.otf.enc" LogicalName="Mashhad.Fonts.%(Filename)%(Extension)" Visible="false" />
+  </ItemGroup>
+
   <!-- Native engines fetched by scripts/fetch-deps.ps1 into /native (not committed). -->
   <ItemGroup Condition="Exists('..\..\native\mpv')">
     <None Include="..\..\native\mpv\**" Link="mpv\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />

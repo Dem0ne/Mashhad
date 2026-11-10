@@ -61,15 +61,23 @@ internal static class Ui
         FontFamily = (FontFamily)Application.Current.Resources["SymbolThemeFontFamily"],
     };
 
-    public static TextBlock Text(string text, double size = 13.5, bool semibold = false, double opacity = 1) => new()
+    public static TextBlock Text(string text, double size = 13.5, bool semibold = false, double opacity = 1)
     {
-        Text = text,
-        FontSize = size,
-        FontWeight = semibold ? FontWeights.SemiBold : FontWeights.Normal,
-        Opacity = opacity,
-        VerticalAlignment = VerticalAlignment.Center,
-        TextTrimming = TextTrimming.CharacterEllipsis,
-    };
+        var t = new TextBlock
+        {
+            Text = text,
+            FontSize = size,
+            Opacity = opacity,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        };
+        Fonts.AppFonts.Style(t, semibold, size);
+        return t;
+    }
+
+    /// <summary>A timecode (Consolas, so digits keep their width while playing).</summary>
+    public static TextBlock Time(string text, double size = 13.5, bool semibold = false, double opacity = 1) =>
+        Fonts.AppFonts.Monospace(Text(text, size, semibold, opacity));
 
     /// <summary>A localised text block (follows language switches).</summary>
     public static TextBlock LText(string key, double size = 13.5, bool semibold = false, double opacity = 1)
@@ -172,13 +180,12 @@ internal static class Ui
         Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", size > 40 ? "Logo256.png" : "Logo32.png"))),
     };
 
-    public static TextBlock Kbd(string key) => new()
+    public static TextBlock Kbd(string key)
     {
-        Text = key,
-        FontSize = 11.5,
-        FontWeight = FontWeights.SemiBold,
-        Padding = new Thickness(6, 2, 6, 2),
-    };
+        var t = new TextBlock { Text = key, FontSize = 11.5, Padding = new Thickness(6, 2, 6, 2) };
+        Fonts.AppFonts.Style(t, true, 11.5);
+        return t;
+    }
 
     public static Brush Res(string key, Brush fallback) =>
         Application.Current.Resources.TryGetValue(key, out var v) && v is Brush b ? b : fallback;

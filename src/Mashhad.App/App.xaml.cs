@@ -41,6 +41,7 @@ public partial class App : Application
         try
         {
             _dispatcher = DispatcherQueue.GetForCurrentThread();
+            Fonts.AppFonts.Initialize(); // before any window, so every control picks up the UI font
             var files = CommandLine.MediaArguments(_args.Where((a, i) => i == 0 || _args[i - 1] != "--smoke-log"));
             _window = new MainWindow(files, IsSmokeTest);
             _window.Activate();

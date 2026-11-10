@@ -573,6 +573,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception e) { Log.Write("Shutdown: " + e); }
         _anim.Stop();
+        Fonts.AppFonts.Cleanup();
         _slideshowTimer?.Stop();
         _chromeTimer?.Stop();
         _preloader.Dispose();

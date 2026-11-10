@@ -188,7 +188,7 @@ public sealed class EditTimeline : Grid
                     Child = new TextBlock
                     {
                         Text = $"{i + 1}" + (string.IsNullOrEmpty(s.Name) ? "" : " · " + s.Name),
-                        FontSize = 11.5, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(8, 0, 8, 0),
+                        FontSize = 11.5, FontFamily = Fonts.AppFonts.Medium, FontWeight = Fonts.AppFonts.Branded ? Microsoft.UI.Text.FontWeights.Medium : Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(8, 0, 8, 0),
                         VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis,
                     },
                 };
@@ -215,7 +215,7 @@ public sealed class EditTimeline : Grid
             double x = X(t);
             Add(new Rectangle { Width = 1, Height = major ? 9 : 4, Fill = Ui.White(major ? 0.35 : 0.18) }, x, RulerH - (major ? 9 : 4));
             if (major && x < w - 30)
-                Add(new TextBlock { Text = TimeFormat.Clock(t, millis: step < 1), FontSize = 10.5, Opacity = 0.55, FontFamily = new FontFamily("Consolas") }, x + 3, 3);
+                Add(new TextBlock { Text = TimeFormat.Clock(t, millis: step < 1), FontSize = 10.5, Opacity = 0.55, FontFamily = Fonts.AppFonts.Mono }, x + 3, 3);
         }
     }
 

@@ -20,7 +20,7 @@ public sealed class PlayChrome : Grid
     public readonly SeekBar Seek = new();
     public readonly Grid Chrome = new();
     public readonly TextBlock TitleText = Ui.Text("", 13.5, true), ContextText = Ui.Text("", 13, false, 0.62);
-    public readonly TextBlock TimeText = Ui.Text("00:00", 14, true), ZoomText = Ui.Text("100%", 13, true);
+    public readonly TextBlock TimeText = Ui.Time("00:00", 14, true), ZoomText = Ui.Text("100%", 13, true);
     public readonly TextBlock SpeedText = Ui.Text("1×", 13, true), ChipText = Ui.Text("", 12.5);
     public readonly TextBlock CropSizeText = Ui.Text("", 13.5, true), ToastText = Ui.Text("", 13.5);
     public readonly FontIcon PlayGlyph, VolumeGlyph = Ui.Icon(Ui.G.Volume), FullscreenGlyph = Ui.Icon(Ui.G.Full);
