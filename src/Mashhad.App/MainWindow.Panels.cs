@@ -62,7 +62,7 @@ public sealed partial class MainWindow
                 if (fi.Exists)
                 {
                     AddInfo("Info.Size", Views.GalleryView.FormatSize(fi.Length));
-                    AddInfo("Info.Modified", fi.LastWriteTime.ToString("g", Loc.Current.Culture));
+                    AddInfo("Info.Modified", Views.GalleryView.FormatDate(fi.LastWriteTime, Loc.Current.Culture, "g"));
                 }
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { }

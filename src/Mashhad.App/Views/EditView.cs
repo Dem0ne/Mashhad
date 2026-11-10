@@ -60,9 +60,10 @@ public sealed class EditView : Grid
         var speed = new Button { Content = SpeedText, Height = 30, MinWidth = 52, CornerRadius = new CornerRadius(15), Background = Ui.White(0.08), BorderThickness = new Thickness(0), IsTabStop = false };
         speed.Click += (_, _) => CommandRequested?.Invoke(PlayerCommand.SpeedUp);
         var transport = new Grid { Padding = new Thickness(14, 0, 10, 0) };
-        transport.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        // clock | transport (centred in the remaining space) | speed, loop, volume, fullscreen
         transport.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         transport.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        transport.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         TimeText.TextTrimming = TextTrimming.None; // the clock is never cut; the duration gives way first
         TimeText.FontSize = 18;
         var clock = new Grid { ColumnSpacing = 10 };
@@ -74,6 +75,7 @@ public sealed class EditView : Grid
         transport.Children.Add(clock);
         var center = Ui.Row(2, Btn("◆◂", "Edit.PrevKeyframeTip", PlayerCommand.PreviousKeyframe), Btn(Ui.G.ChevL, "Bar.FrameBack", PlayerCommand.FrameBackStep, icon: true),
             play, Btn(Ui.G.ChevR, "Bar.FrameForward", PlayerCommand.FrameStep, icon: true), Btn("▸◆", "Edit.NextKeyframeTip", PlayerCommand.NextKeyframe));
+        center.HorizontalAlignment = HorizontalAlignment.Center;
         SetColumn(center, 1);
         transport.Children.Add(center);
         var right = Ui.Row(2, speed, Btn(Ui.G.Repeat, "Menu.AbLoop", PlayerCommand.AbLoop, icon: true), Btn(Ui.G.Volume, "Bar.Mute", PlayerCommand.Mute, icon: true),
@@ -87,12 +89,7 @@ public sealed class EditView : Grid
         // ---- inspector ----
         L.SetText(Merge, "Edit.Merge"); L.SetText(Snap, "Edit.Snap"); L.SetText(KeepAll, "Edit.KeepAll");
         foreach (var c in new[] { Merge, Snap, KeepAll }) c.Click += (_, _) => OptionsChanged?.Invoke();
-        foreach (var (key, tag) in new[] { ("Edit.SameContainer", ""), ("MKV", ".mkv"), ("MP4", ".mp4"), ("MOV", ".mov") })
-        {
-            var item = new ComboBoxItem { Tag = tag };
-            if (key.Contains('.')) L.SetText(item, key); else item.Content = key;
-            Container.Items.Add(item);
-        }
+        FillContainers();
         Container.SelectedIndex = 0;
         Container.SelectionChanged += (_, _) => { if (!_refreshing) OptionsChanged?.Invoke(); };
         ExportButton = Ui.PillButton(Ui.G.Export, "Edit.Export", (_, _) => ExportClicked?.Invoke(), accent: true, height: 40);
@@ -168,12 +165,19 @@ public sealed class EditView : Grid
     /// <summary>Positions the cards for a window size (also called before the first layout, for transitions).</summary>
     private bool _refreshing;
 
-    /// <summary>After a language switch: the combo box keeps showing the old text of its selected item.</summary>
+    private void FillContainers()
+    {
+        Container.Items.Clear();
+        foreach (var (key, tag) in new[] { ("Edit.SameContainer", ""), ("MKV", ".mkv"), ("MP4", ".mp4"), ("MOV", ".mov") })
+            Container.Items.Add(new ComboBoxItem { Tag = tag, Content = key.Contains('.') ? Loc.T(key) : key });
+    }
+
+    /// <summary>After a language switch: rebuilds the container choices (the box caches the selected item's text).</summary>
     public void RefreshTexts()
     {
         _refreshing = true;
-        int i = Container.SelectedIndex;
-        Container.SelectedIndex = -1;
+        int i = Math.Max(0, Container.SelectedIndex);
+        FillContainers();
         Container.SelectedIndex = i;
         _refreshing = false;
     }

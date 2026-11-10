@@ -301,8 +301,13 @@ public sealed class GalleryView : Grid
         string[] u = { "B", "KB", "MB", "GB", "TB" };
         double v = bytes; int i = 0;
         while (v >= 1024 && i < u.Length - 1) { v /= 1024; i++; }
-        return v.ToString(i == 0 ? "0" : "0.#", CultureInfo.InvariantCulture) + " " + u[i];
+        // Left-to-right marks keep "9.6 MB" in that order inside Arabic text.
+        return "\u200E" + v.ToString(i == 0 ? "0" : "0.#", CultureInfo.InvariantCulture) + " " + u[i] + "\u200E";
     }
+
+    /// <summary>A short date that keeps its order in Arabic text (ICU's Arabic patterns insert RLMs).</summary>
+    internal static string FormatDate(DateTime date, CultureInfo culture, string format = "d") =>
+        "\u200E" + date.ToString(format, culture).Replace("\u200F", "").Replace("\u061C", "") + "\u200E";
 
     // ---- folder pane --------------------------------------------------------------------------
 
@@ -469,7 +474,7 @@ public sealed class GalleryView : Grid
         {
             VerticalAlignment = VerticalAlignment.Bottom, Padding = new Thickness(12, 28, 12, 10), Visibility = Visibility.Collapsed,
             Background = Gradient(),
-            Child = Ui.Column(0, Ui.Text(e.Item.FileName, 13.5, true), Ui.Text($"\u2068{GalleryView.FormatSize(e.Size)}\u2069 · \u2068{e.Modified.ToString("d", _culture())}\u2069", 12, false, 0.75)),
+            Child = Ui.Column(0, Ui.Text(e.Item.FileName, 13.5, true), Ui.Text($"{GalleryView.FormatSize(e.Size)} · {GalleryView.FormatDate(e.Modified, _culture())}", 12, false, 0.75)),
         };
         root.Children.Add(caption);
         var check = new Border { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), Background = Ui.Brand(), Child = Ui.Icon(Ui.G.Check, 11), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8), Visibility = Visibility.Collapsed };
