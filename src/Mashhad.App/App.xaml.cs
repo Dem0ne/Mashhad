@@ -21,7 +21,7 @@ public partial class App : Application
         UnhandledException += (_, e) =>
         {
             Log.Write("Unhandled UI exception: " + e.Exception);
-            if (IsSmokeTest) { Log.Write("SMOKE RESULT: FAIL (unhandled exception)"); Environment.Exit(2); }
+            if (IsSmokeTest) { Log.Write("SMOKE RESULT: FAIL (unhandled exception)"); Log.Flush(); Environment.Exit(2); }
             e.Handled = true; // keep the player alive; the error is in the log
         };
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Log.Write("Unhandled exception: " + e.ExceptionObject);
@@ -53,6 +53,7 @@ public partial class App : Application
         {
             Log.Write("Startup failed: " + e);
             if (IsSmokeTest) Log.Write("SMOKE RESULT: FAIL (startup)");
+            Log.Flush();
             Environment.Exit(3);
         }
     }

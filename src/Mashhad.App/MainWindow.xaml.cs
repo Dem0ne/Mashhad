@@ -289,6 +289,7 @@ public sealed partial class MainWindow : Window
         _mpv = null;
         _host?.Dispose();
         _host = null;
+        Log.Flush();
     }
 
     private static void TryRun(Action action, string what)

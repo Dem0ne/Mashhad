@@ -48,7 +48,7 @@ public static class CropMath
 
     /// <summary>
     /// ASS drawing (for mpv's <c>osd-overlay</c>, resolution = window size) that dims everything
-    /// outside the selection and outlines it in the brand teal.
+    /// outside the selection and outlines it in the brand rose.
     /// </summary>
     public static string BuildOverlayAss(double windowWidth, double windowHeight, RectD selection)
     {
@@ -59,8 +59,8 @@ public static class CropMath
         // Outer rectangle clockwise, inner counter-clockwise: the non-zero winding rule leaves a hole.
         string dim = "{\\an7\\pos(0,0)\\bord0\\shad0\\1c&H000000&\\1a&H70&\\p1}" +
                      $"m 0 0 l {w} 0 l {w} {h} l 0 {h} m {x1} {y1} l {x1} {y2} l {x2} {y2} l {x2} {y1}" + "{\\p0}";
-        // ASS colours are BGR: #2FD8B8 -> B8D82F.
-        string frame = "{\\an7\\pos(0,0)\\bord2\\shad0\\1a&HFF&\\3c&HB8D82F&\\p1}" +
+        // ASS colours are BGR: brand rose #FF5E7E -> 7E5EFF.
+        string frame = "{\\an7\\pos(0,0)\\bord2\\shad0\\1a&HFF&\\3c&H7E5EFF&\\p1}" +
                        $"m {x1} {y1} l {x2} {y1} l {x2} {y2} l {x1} {y2}" + "{\\p0}";
         return dim + "\n" + frame;
     }

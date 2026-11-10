@@ -227,7 +227,7 @@ public class CropMathTests
         var ass = CropMath.BuildOverlayAss(1000, 500, new RectD(100.4, 50, 400, 200)).Split('\n');
         Assert.Equal(2, ass.Length);
         Assert.Contains("m 0 0 l 1000 0 l 1000 500 l 0 500 m 100 50 l 100 250 l 500 250 l 500 50", ass[0]);
-        Assert.Contains("\\3c&HB8D82F&", ass[1]);
+        Assert.Contains("\\3c&H7E5EFF&", ass[1]);
     }
 }
 
@@ -258,7 +258,17 @@ public class ShortcutTests
     {
         var esc = KeyGesture.Parse("Escape");
         Assert.Equal(PlayerCommand.ToggleCrop, _map.Resolve(esc, ShortcutContext.Crop, ShortcutContext.Image));
-        Assert.Equal(PlayerCommand.ExitFullscreen, _map.Resolve(esc, ShortcutContext.Image));
+        Assert.Equal(PlayerCommand.Back, _map.Resolve(esc, ShortcutContext.Image));
+    }
+
+    [Fact]
+    public void Folder_view_owns_the_arrows_and_enter()
+    {
+        Assert.Equal(PlayerCommand.GalleryDown, _map.Resolve(KeyGesture.Parse("Down"), ShortcutContext.Folder));
+        Assert.Equal(PlayerCommand.OpenFocused, _map.Resolve(KeyGesture.Parse("Enter"), ShortcutContext.Folder));
+        Assert.Equal(PlayerCommand.ToggleSelection, _map.Resolve(KeyGesture.Parse("Space"), ShortcutContext.Folder));
+        Assert.Equal(PlayerCommand.ToggleFolderPane, _map.Resolve(KeyGesture.Parse("F9"), ShortcutContext.Folder));
+        Assert.Equal(PlayerCommand.ToggleEditMode, _map.Resolve(KeyGesture.Parse("Ctrl+E"), ShortcutContext.Folder));
     }
 
     [Fact]

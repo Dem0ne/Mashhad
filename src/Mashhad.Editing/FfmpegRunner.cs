@@ -89,6 +89,36 @@ public sealed class FfmpegRunner
         progress?.Report(1);
     }
 
+    /// <summary>Runs ffmpeg and hands its stdout to <paramref name="consume"/> as a stream (binary output such as PCM).</summary>
+    public async Task<T> RunWithOutputAsync<T>(IReadOnlyList<string> args, Func<Stream, Task<T>> consume, CancellationToken ct = default)
+    {
+        var psi = new ProcessStartInfo(Tools.Ffmpeg)
+        {
+            UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
+            StandardErrorEncoding = Encoding.UTF8,
+        };
+        foreach (var a in args) psi.ArgumentList.Add(a);
+        using var process = new Process { StartInfo = psi };
+        var stderr = new StringBuilder();
+        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) lock (stderr) if (stderr.Length < 32 * 1024) stderr.Append(e.Data).Append('\n'); };
+        process.Start();
+        process.BeginErrorReadLine();
+        using var reg = ct.Register(() => { try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } });
+        T result;
+        try
+        {
+            result = await consume(process.StandardOutput.BaseStream).ConfigureAwait(false);
+        }
+        finally
+        {
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+        ct.ThrowIfCancellationRequested();
+        if (process.ExitCode != 0)
+            throw new FfmpegException($"ffmpeg failed with exit code {process.ExitCode}: {LastLine(stderr.ToString())}", process.ExitCode, stderr.ToString());
+        return result;
+    }
+
     public async Task<MediaProbe> ProbeAsync(string input, CancellationToken ct = default)
     {
         var (exit, output, err) = await RunProcessAsync(Tools.Ffprobe, FfmpegArgs.Probe(input), null, ct).ConfigureAwait(false);

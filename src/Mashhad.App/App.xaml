@@ -9,25 +9,25 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Accent ramp derived from the logo gradient: teal #2FD8B8 -> blue #16A3D9 -> indigo #2F5BE3. -->
-            <Color x:Key="SystemAccentColor">#16A3D9</Color>
-            <Color x:Key="SystemAccentColorLight1">#22BDD0</Color>
-            <Color x:Key="SystemAccentColorLight2">#2FD8B8</Color>
-            <Color x:Key="SystemAccentColorLight3">#8AEBD8</Color>
-            <Color x:Key="SystemAccentColorDark1">#2F5BE3</Color>
-            <Color x:Key="SystemAccentColorDark2">#2448B8</Color>
-            <Color x:Key="SystemAccentColorDark3">#1A3488</Color>
+            <!-- Accent ramp derived from the logo gradient: rose #FF5E7E -> crimson #E6223F -> wine #8E1035. -->
+            <Color x:Key="SystemAccentColor">#E6223F</Color>
+            <Color x:Key="SystemAccentColorLight1">#F03C58</Color>
+            <Color x:Key="SystemAccentColorLight2">#FF5E7E</Color>
+            <Color x:Key="SystemAccentColorLight3">#FF96AA</Color>
+            <Color x:Key="SystemAccentColorDark1">#BC1A39</Color>
+            <Color x:Key="SystemAccentColorDark2">#8E1035</Color>
+            <Color x:Key="SystemAccentColorDark3">#5C0A22</Color>
 
-            <Color x:Key="BrandTeal">#2FD8B8</Color>
-            <Color x:Key="BrandBlue">#16A3D9</Color>
-            <Color x:Key="BrandIndigo">#2F5BE3</Color>
+            <Color x:Key="BrandRose">#FF5E7E</Color>
+            <Color x:Key="BrandCrimson">#E6223F</Color>
+            <Color x:Key="BrandWine">#8E1035</Color>
             <LinearGradientBrush x:Key="BrandGradientBrush" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Offset="0" Color="#2FD8B8" />
-                <GradientStop Offset="0.5" Color="#16A3D9" />
-                <GradientStop Offset="1" Color="#2F5BE3" />
+                <GradientStop Offset="0" Color="#FF5E7E" />
+                <GradientStop Offset="0.5" Color="#E6223F" />
+                <GradientStop Offset="1" Color="#8E1035" />
             </LinearGradientBrush>
-            <SolidColorBrush x:Key="SegmentBrush" Color="#2FD8B8" Opacity="0.55" />
-            <SolidColorBrush x:Key="SegmentCurrentBrush" Color="#2FD8B8" />
+            <SolidColorBrush x:Key="SegmentBrush" Color="#FF5E7E" Opacity="0.55" />
+            <SolidColorBrush x:Key="SegmentCurrentBrush" Color="#E6223F" />
             <SolidColorBrush x:Key="LoopMarkerBrush" Color="#F2B84B" />
 
             <Style x:Key="BarButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">

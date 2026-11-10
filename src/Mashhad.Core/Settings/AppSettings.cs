@@ -18,8 +18,13 @@ public sealed class AppSettings
     public bool Muted { get; set; }
     public bool ResumePlayback { get; set; } = true;
     public bool WrapGallery { get; set; } = true;
-    public GallerySort Sort { get; set; } = GallerySort.Name;
-    public bool SortDescending { get; set; }
+    /// <summary>Newest first, grouped by day, like a photo library.</summary>
+    public GallerySort Sort { get; set; } = GallerySort.DateModified;
+    public bool SortDescending { get; set; } = true;
+    /// <summary>Keep the folder pane visible instead of letting it auto-hide (F9).</summary>
+    public bool FolderPanePinned { get; set; } = true;
+    /// <summary>Folders opened recently (most recent first), for the folder pane.</summary>
+    public List<string> RecentFolders { get; set; } = new();
     public bool SingleInstance { get; set; } = true;
 
     public double SlideshowSeconds { get; set; } = 5;
@@ -105,6 +110,8 @@ public sealed class SettingsStore
         s.ExportDirectory ??= "";
         s.PreferredAudioLanguages ??= "";
         s.PreferredSubtitleLanguages ??= "";
+        s.RecentFolders ??= new List<string>();
+        s.RecentFolders = s.RecentFolders.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList();
     }
 }
 

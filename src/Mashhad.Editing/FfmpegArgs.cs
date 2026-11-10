@@ -107,6 +107,17 @@ public static class FfmpegArgs
         return a;
     }
 
+    /// <summary>A small JPEG of the frame at <paramref name="time"/> for the editor's thumbnail lane (fast keyframe seek).</summary>
+    public static List<string> Thumbnail(string input, string output, double time, int height)
+    {
+        var a = new List<string> { "-hide_banner", "-nostdin", "-y", "-v", "error" };
+        a.Add("-ss"); a.Add(T(time));
+        a.Add("-i"); a.Add(input);
+        a.AddRange(new[] { "-map", "0:v:0", "-frames:v", "1", "-an", "-sn",
+            "-vf", "scale=-2:" + height.ToString(CultureInfo.InvariantCulture), "-c:v", "mjpeg", "-q:v", "5", "-update", "1", output });
+        return a;
+    }
+
     /// <summary>Every frame of [start, end) as numbered images; <paramref name="outputPattern"/> contains e.g. %05d.</summary>
     public static List<string> ExtractFrames(string input, string outputPattern, double start, double? end, FrameFormat format)
     {

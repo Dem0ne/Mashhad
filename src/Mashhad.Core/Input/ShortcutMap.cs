@@ -5,6 +5,12 @@ public enum PlayerCommand
     None,
     // Files / app
     OpenFile, OpenFolder, ToggleFullscreen, ExitFullscreen, ToggleInfoPanel, TogglePlaylistPanel,
+    /// <summary>Escape: leave full screen / slideshow first, otherwise Edit → Play → Folder.</summary>
+    Back, ShowFolder, ToggleFolderPane,
+    // Folder view
+    GalleryLeft, GalleryRight, GalleryUp, GalleryDown, OpenFocused, ToggleSelection, SelectAll, DeleteSelection,
+    // Buttons only (no default key)
+    SeekBack10, SeekForward10, SaveImage, ShowInExplorer, ShowPlayMode,
     ToggleEditMode, ToggleSlideshow, ShowSettings, Quit,
     // Gallery
     NextItem, PreviousItem, FirstItem, LastItem,
@@ -29,6 +35,7 @@ public enum ShortcutContext
     Image,   // an image is showing
     Edit,    // lossless edit mode is on
     Crop,    // crop selection is active
+    Folder,  // the folder gallery is showing
 }
 
 /// <summary>Keyboard map combining mpv, VLC and LosslessCut conventions.</summary>
@@ -66,7 +73,7 @@ public sealed class ShortcutMap
     {
         var m = new ShortcutMap();
         const ShortcutContext G = ShortcutContext.Global, T = ShortcutContext.Timed, I = ShortcutContext.Image,
-            E = ShortcutContext.Edit, C = ShortcutContext.Crop;
+            E = ShortcutContext.Edit, C = ShortcutContext.Crop, F = ShortcutContext.Folder;
 
         // App
         m.Bind(G, "Ctrl+O", PlayerCommand.OpenFile);
@@ -74,7 +81,8 @@ public sealed class ShortcutMap
         m.Bind(G, "F", PlayerCommand.ToggleFullscreen);
         m.Bind(G, "F11", PlayerCommand.ToggleFullscreen);
         m.Bind(G, "Alt+Enter", PlayerCommand.ToggleFullscreen);
-        m.Bind(G, "Escape", PlayerCommand.ExitFullscreen);
+        m.Bind(G, "Escape", PlayerCommand.Back);
+        m.Bind(G, "F9", PlayerCommand.ToggleFolderPane);
         m.Bind(G, "Ctrl+I", PlayerCommand.ToggleInfoPanel);
         m.Bind(G, "Ctrl+L", PlayerCommand.TogglePlaylistPanel);
         m.Bind(G, "Ctrl+E", PlayerCommand.ToggleEditMode);
@@ -143,6 +151,18 @@ public sealed class ShortcutMap
         m.Bind(I, "C", PlayerCommand.ToggleCrop);
         m.Bind(C, "Enter", PlayerCommand.ApplyCrop);
         m.Bind(C, "Escape", PlayerCommand.ToggleCrop);
+
+        // Folder view (overrides the item shortcuts while the gallery is showing)
+        m.Bind(F, "Left", PlayerCommand.GalleryLeft);
+        m.Bind(F, "Right", PlayerCommand.GalleryRight);
+        m.Bind(F, "Up", PlayerCommand.GalleryUp);
+        m.Bind(F, "Down", PlayerCommand.GalleryDown);
+        m.Bind(F, "Enter", PlayerCommand.OpenFocused);
+        m.Bind(F, "Space", PlayerCommand.ToggleSelection);
+        m.Bind(F, "Ctrl+A", PlayerCommand.SelectAll);
+        m.Bind(F, "Delete", PlayerCommand.DeleteSelection);
+        m.Bind(F, "Home", PlayerCommand.FirstItem);
+        m.Bind(F, "End", PlayerCommand.LastItem);
 
         // Lossless editing (LosslessCut)
         m.Bind(E, "I", PlayerCommand.SetIn);
