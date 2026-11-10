@@ -9,7 +9,7 @@ body{background:#111316;font-size:13px}
 .tb .m{height:28px;padding:0 9px;display:flex;align-items:center;border-radius:5px;font-size:13px;color:rgba(255,255,255,.82)}
 .modes{position:absolute;left:50%;transform:translateX(-50%);top:5px;display:flex;padding:3px;border-radius:8px;background:#1b1e23;border:1px solid #2a2e35}
 .modes span{height:24px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:6px;font-size:12.5px;font-weight:500;color:rgba(255,255,255,.7)}
-.modes span.on{background:${BRAND};color:#fff;box-shadow:0 2px 10px rgba(22,163,217,.4)}
+.modes span.on{background:${BRAND};color:#fff;box-shadow:0 2px 10px rgba(230,34,63,.4)}
 .panel{position:absolute;background:#16181c;border:1px solid #23262c}
 .ph{height:34px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid #23262c;font-size:12px;font-weight:600;
   color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.05em}
@@ -23,8 +23,8 @@ html[dir=rtl] .ph{text-transform:none;letter-spacing:0;font-size:13px}
 .binrow .thumb{border-radius:4px;flex:none}
 .binrow .nm{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .binrow .mt{font-size:11.5px;color:rgba(255,255,255,.45)}
-.binrow.on{background:rgba(22,163,217,.16);box-shadow:inset 3px 0 0 #16A3D9}
-html[dir=rtl] .binrow.on{box-shadow:inset -3px 0 0 #16A3D9}
+.binrow.on{background:rgba(230,34,63,.16);box-shadow:inset 3px 0 0 #E6223F}
+html[dir=rtl] .binrow.on{box-shadow:inset -3px 0 0 #E6223F}
 .mini{height:28px;display:flex;align-items:center;gap:8px;margin:8px 10px;padding:0 10px;border-radius:6px;background:#1f2228;border:1px solid #2a2e35;color:rgba(255,255,255,.5);font-size:12px}
 .preview{position:absolute;background:#000;overflow:hidden}
 .preview>svg{width:100%;height:100%;display:block}
@@ -37,7 +37,7 @@ html[dir=rtl] .binrow.on{box-shadow:inset -3px 0 0 #16A3D9}
 .playb{width:40px;height:40px;border-radius:50%;background:${BRAND};display:flex;align-items:center;justify-content:center;margin:0 6px}
 .tool{height:30px;display:flex;align-items:center;gap:6px;padding:0 9px;border-radius:6px;font-size:12.5px;background:#1f2228;border:1px solid #2a2e35;color:rgba(255,255,255,.9)}
 .tool .kbd{height:18px;min-width:18px;font-size:10.5px;padding:0 4px}
-.tool.on{background:rgba(47,216,184,.14);border-color:rgba(47,216,184,.6);color:#bff7ea}
+.tool.on{background:rgba(255,94,126,.14);border-color:rgba(255,94,126,.6);color:#ffd0da}
 .tl{position:absolute;direction:ltr;background:#131519;border:1px solid #23262c}
 .tlbar{height:42px;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid #23262c}
 .tracks{position:absolute;left:0;right:0;bottom:0}
@@ -53,7 +53,7 @@ html[dir=rtl] .binrow.on{box-shadow:inset -3px 0 0 #16A3D9}
 .frs{display:flex;height:100%}
 .frs .thumb{flex:1;height:100%!important;width:auto!important;border-right:1px solid #000}
 .kd{position:absolute;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;transform:rotate(45deg);background:#cfd6df;opacity:.7}
-.kd.snap{background:#2FD8B8;opacity:1;box-shadow:0 0 0 2px rgba(47,216,184,.3)}
+.kd.snap{background:#FF5E7E;opacity:1;box-shadow:0 0 0 2px rgba(255,94,126,.3)}
 .ins{position:absolute;top:0;bottom:0;background:rgba(10,11,13,.6)}
 .playhead{position:absolute;width:2px;margin-left:-1px;background:#fff;z-index:5;box-shadow:0 0 6px rgba(0,0,0,.7)}
 .playhead::before{content:"";position:absolute;top:0;left:-6px;width:14px;height:12px;background:#fff;clip-path:polygon(0 0,100% 0,100% 55%,50% 100%,0 55%)}
@@ -63,14 +63,14 @@ html[dir=rtl] .binrow.on{box-shadow:inset -3px 0 0 #16A3D9}
 html[dir=rtl] .lbl{text-transform:none;letter-spacing:0;font-size:12.5px}
 .tbl{width:100%;border-collapse:collapse;font-size:12.5px}
 .tbl td{padding:5px 4px;border-bottom:1px solid rgba(255,255,255,.05)}
-.tbl tr.cur td{background:rgba(22,163,217,.14)}
+.tbl tr.cur td{background:rgba(230,34,63,.14)}
 .tbl .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-inline-end:6px}
 .ck{width:16px;height:16px;border-radius:4px;border:1.5px solid rgba(255,255,255,.55);display:inline-flex;align-items:center;justify-content:center;flex:none}
-.ck.on{background:#16A3D9;border-color:#16A3D9}
+.ck.on{background:#E6223F;border-color:#E6223F}
 .line{display:flex;align-items:center;gap:8px;height:28px;font-size:12.5px}
 .line .r{margin-inline-start:auto;color:rgba(255,255,255,.55)}
 .dd{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;border-radius:6px;background:#1f2228;border:1px solid #2a2e35;font-size:12.5px}
-.cmdbox{font-family:"JetBrains Mono",monospace;font-size:11px;line-height:1.55;color:#9fe9d9;background:#0c0e11;border:1px solid #23262c;border-radius:6px;padding:9px 10px;direction:ltr;text-align:left;white-space:pre-wrap;word-break:break-all}
+.cmdbox{font-family:"JetBrains Mono",monospace;font-size:11px;line-height:1.55;color:#ffb3c1;background:#0c0e11;border:1px solid #23262c;border-radius:6px;padding:9px 10px;direction:ltr;text-align:left;white-space:pre-wrap;word-break:break-all}
 .cmdbox b{color:#7fb6ff;font-weight:500}
 .stat{display:flex;gap:8px;margin-top:10px}
 .stat div{flex:1;background:#1b1e23;border:1px solid #2a2e35;border-radius:6px;padding:6px 10px}
@@ -80,13 +80,13 @@ html[dir=rtl] .lbl{text-transform:none;letter-spacing:0;font-size:12.5px}
 .gcell .thumb{border-radius:5px}
 .gcell .nm{font-size:11.5px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,.85)}
 .gcell .mt{font-size:10.5px;color:rgba(255,255,255,.45)}
-.gcell.on .thumb{box-shadow:0 0 0 2px #16181c,0 0 0 4px #16A3D9}
+.gcell.on .thumb{box-shadow:0 0 0 2px #16181c,0 0 0 4px #E6223F}
 .tree .it{height:30px;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:5px;font-size:12.5px;color:rgba(255,255,255,.82)}
-.tree .it.on{background:rgba(22,163,217,.16)}
+.tree .it.on{background:rgba(230,34,63,.16)}
 .tree .it .c{margin-inline-start:auto;font-size:11px;color:rgba(255,255,255,.4)}
 `;
 
-const ACCENTS = ['#2FD8B8', '#16A3D9', '#2F5BE3'];
+const ACCENTS = ['#FF5E7E', '#E6223F', '#8E1035'];
 
 function titleBar(mode, rtl) {
   const menus = rtl ? ['ملف', 'تحرير', 'عرض', 'تشغيل', 'أدوات', 'مساعدة'] : ['File', 'Edit', 'View', 'Playback', 'Tools', 'Help'];
@@ -146,7 +146,7 @@ function timeline({ x, y, w, h, mode, rtl }) {
     if (k === 'ruler') { hdr = ''; lane = `<div class="rul" style="position:absolute;inset:0">${ruler(laneW, secs, 5)}</div>`; }
     if (k === 'seg') {
       hdr = `${icon('scissors', 's14')}<b>${rtl ? 'المقاطع' : 'Segments'}</b>`;
-      lane = segs.map(([a, b, l], i) => `<div class="blk ${i === 1 ? 'cur' : ''}" style="left:${X(a)}px;width:${X(b) - X(a)}px;background:${ACCENTS[i]};color:${i === 0 ? '#06332b' : '#fff'}">
+      lane = segs.map(([a, b, l], i) => `<div class="blk ${i === 1 ? 'cur' : ''}" style="left:${X(a)}px;width:${X(b) - X(a)}px;background:${ACCENTS[i]};color:${i === 0 ? '#4a0617' : '#fff'}">
         <div class="hd" style="left:0;border-radius:5px 0 0 5px;${i === 1 ? '' : 'opacity:0'}"></div>${l}<div class="hd" style="right:0;border-radius:0 5px 5px 0;${i === 1 ? '' : 'opacity:0'}"></div></div>`).join('');
     }
     if (k === 'chap') {
@@ -160,8 +160,8 @@ function timeline({ x, y, w, h, mode, rtl }) {
       hdr = `${icon('key', 's14')}<b>${rtl ? 'مفتاحية' : 'Keys'}</b>`;
       lane = kfs.map(t => `<div class="kd ${Math.abs(t - 16.8) < 0.6 ? 'snap' : ''}" style="left:${X(t)}px"></div>`).join('');
     }
-    if (k === 'a1') { hdr = `${icon('audio', 's14')}<b>A1</b><span class="t3">ara · AAC</span>`; lane = waveform(laneW, hh - 1, 5, 'rgba(126,240,216,.65)', 3); }
-    if (k === 'a2') { hdr = `${icon('audio', 's14')}<b>A2</b><span class="t3">eng · AC-3</span>`; lane = waveform(laneW, hh - 1, 9, 'rgba(127,182,255,.55)', 3); }
+    if (k === 'a1') { hdr = `${icon('audio', 's14')}<b>A1</b><span class="t3">ara · AAC</span>`; lane = waveform(laneW, hh - 1, 5, 'rgba(255,126,150,.65)', 3); }
+    if (k === 'a2') { hdr = `${icon('audio', 's14')}<b>A2</b><span class="t3">eng · AC-3</span>`; lane = waveform(laneW, hh - 1, 9, 'rgba(255,170,190,.55)', 3); }
     if (mode === 2 && k !== 'ruler' && k !== 'seg') {
       let last = 0, d = '';
       for (const [a, b] of segs) { d += `<div class="ins" style="left:${X(last)}px;width:${X(a) - X(last)}px"></div>`; last = b; }
@@ -173,7 +173,7 @@ function timeline({ x, y, w, h, mode, rtl }) {
   const playX = 136 + X(play);
   return `<div class="tl" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">
     <div class="tlbar" dir="${rtl ? 'rtl' : 'ltr'}">${tools}<span style="flex:1"></span>
-      <span class="tool">${icon('zoomout', 's14')}</span><span style="width:90px;height:4px;border-radius:2px;background:linear-gradient(90deg,#16A3D9 40%,#2a2e35 40%)"></span>
+      <span class="tool">${icon('zoomout', 's14')}</span><span style="width:90px;height:4px;border-radius:2px;background:linear-gradient(90deg,#E6223F 40%,#2a2e35 40%)"></span>
       <span class="tool">${icon('zoomin', 's14')}</span><span class="tool">${rtl ? 'ملاءمة' : 'Fit'}</span></div>
     ${lanes}<div class="playhead" style="left:${playX}px;top:44px;height:${top - 44}px"></div></div>`;
 }
@@ -223,7 +223,7 @@ function inspectorCut(rtl) {
 }
 
 function inspectorPlay() {
-  const radio = (on, l, r) => `<div class="line"><span class="ck" style="border-radius:50%;${on ? 'border:5px solid #16A3D9' : ''}"></span>${l}<span class="r">${r || ''}</span></div>`;
+  const radio = (on, l, r) => `<div class="line"><span class="ck" style="border-radius:50%;${on ? 'border:5px solid #E6223F' : ''}"></span>${l}<span class="r">${r || ''}</span></div>`;
   return `<div class="tabs"><span class="on">${icon('audio', 's14')}Tracks</span><span>${icon('info', 's14')}Info</span><span>${icon('list', 's14')}Playlist</span></div>
     <div class="insp">
       <div class="lbl" style="margin-top:2px">Audio</div>${radio(true, 'Arabic · AAC 2.0', '#1')}${radio(false, 'English · AC-3 5.1', '#2')}
@@ -235,7 +235,7 @@ function inspectorPlay() {
       <div class="line"><span class="ck on">${icon('check', 's14', 'stroke-width="2.4"')}</span>Resume where I left off</div>
       <div class="line"><span class="ck">${''}</span>Repeat file</div>
       <div class="lbl">Engine</div>
-      <div class="line"><span class="t2" style="width:90px">Decoder</span><span style="color:#7ef0d8;font-weight:600">d3d11va (hardware)</span></div>
+      <div class="line"><span class="t2" style="width:90px">Decoder</span><span style="color:#ffa8b8;font-weight:600">d3d11va (hardware)</span></div>
       <div class="line"><span class="t2" style="width:90px">Output</span>gpu-next · d3d11 · HDR passthrough</div>
       <div class="line"><span class="t2" style="width:90px">Dropped</span><span class="num">0 frames</span></div>
       <div class="line"><span class="t2" style="width:90px">Cache</span><span class="num">38.4 s · 62 MB</span></div>
@@ -251,7 +251,7 @@ function cut({ rtl = false } = {}) {
     ${bin({ x: L(0, binW), y: top, w: binW, h: 1000 - top - tlH, rtl })}
     <div class="preview" style="left:${L(binW, prevW)}px;top:${top}px;width:${prevW}px;height:${prevH}px">${scene('dunes', 11, 1.8)}
       <div class="ovl" style="top:10px;${rtl ? 'right' : 'left'}:10px"><span class="num">3840×2160</span><span class="num">HEVC · HDR10</span><span class="num">29.97 fps</span></div>
-      <div class="ovl" style="top:10px;${rtl ? 'left' : 'right'}:10px"><span style="background:rgba(22,163,217,.8);color:#fff">${icon('scissors', 's14')}${rtl ? 'المقطع 2 من 3' : 'Segment 2 of 3'}</span></div></div>
+      <div class="ovl" style="top:10px;${rtl ? 'left' : 'right'}:10px"><span style="background:rgba(230,34,63,.8);color:#fff">${icon('scissors', 's14')}${rtl ? 'المقطع 2 من 3' : 'Segment 2 of 3'}</span></div></div>
     ${transport({ x: L(binW, prevW), y: top + prevH, w: prevW, rtl, mode: 2 })}
     <div class="panel" style="left:${L(binW + prevW, inspW)}px;top:${top}px;width:${inspW}px;height:${1000 - top - tlH}px;overflow:hidden">${inspectorCut(rtl)}</div>
     ${timeline({ x: 0, y: 1000 - tlH, w: 1600, h: tlH, mode: 2, rtl })}`

@@ -20,8 +20,15 @@ replace both the Windows Photos app and the default video player.
 
 - **Engine:** embedded **libmpv** shows both videos and images; **FFmpeg** does editing/export.
   Hardware decoding (**D3D11VA**) is on by default. Native **WinUI 3** UI — no Electron, no browser.
-- **Unified gallery:** open any file and browse *every image and video in the same folder* with the arrow keys
-  (natural sort order). Neighbouring files are pre-read in the background so the next one opens without disk latency.
+- **Three modes, one window** ([design](docs/design/ui-concepts/hybrid/README.md)):
+  - **Folder:** browse photos and videos together in a date-grouped, justified grid with a folder pane, filters,
+    search and multi-select.
+  - **Play:** Cinema-style. The picture fills the window and controls float over it, then fade away.
+  - **Edit:** Studio-style lossless editor with a multi-lane timeline.
+
+  Switching modes is animated, and Escape always goes back.
+- **Unified gallery:** arrow keys move through *every image and video in the same folder*. Neighbouring files are
+  pre-read in the background, so the next one opens without disk latency.
 - **Video:** everything FFmpeg can decode, subtitles (embedded, external, drag & drop), audio/subtitle track
   selection, speed, frame stepping, A-B loop, screenshots, resume position, playlists (M3U), drag & drop.
 - **Images:** JPG, PNG, WebP, GIF/APNG (animated), HEIC/AVIF/JXL where the bundled FFmpeg can decode them;
@@ -29,7 +36,8 @@ replace both the Windows Photos app and the default video player.
 - **Lossless editing:** in/out points on the timeline, multiple segments, cut and merge with stream copy
   (no re-encode), keyframe-aware cutting, frame export, remux to MKV/MP4/MOV.
 - **Slideshow** mixing images (timed) and videos (played to the end).
-- **Arabic and English**, right-to-left layout, dark/light themes, accent colours taken from the logo.
+- **Arabic and English** with a full right-to-left layout, in a dark theme with the crimson brand gradient
+  (`#FF5E7E → #E6223F → #8E1035`).
 
 ### Status
 
@@ -54,7 +62,10 @@ This is a first version. What has and has not been verified is listed honestly u
 | Slideshow | `F5` |
 | Images: zoom in / out / fit / 100 % | `+` / `-` / `0` / `1`, mouse wheel (zooms at the cursor), drag to pan |
 | Images: rotate / crop | `R`, `Shift`+`R` / `C` (drag a rectangle, `Enter` saves a copy) |
-| Lossless edit mode | `Ctrl`+`E` |
+| Back (full screen → Edit → Play → Folder) | `Esc` |
+| Folder: move / open / select / select all / delete | arrows / `Enter` (or double-click) / `Space`, `Ctrl`/`Shift`+click / `Ctrl`+`A` / `Delete` (Recycle Bin) |
+| Folder: pin or auto-hide the folder pane | `F9` |
+| Lossless edit mode (Play ⇄ Edit) | `Ctrl`+`E` |
 | Edit: in / out / new segment / split / remove | `I` / `O` / `+` / `B` / `Delete` |
 | Edit: previous / next keyframe | `Alt`+`←` / `Alt`+`→` |
 | Edit: export | `Ctrl`+`Enter` |
@@ -133,17 +144,26 @@ running window.
 src/Mashhad.Core      media logic, no UI: gallery, queue, preloader, resume, shortcuts, image/crop math,
                       settings, localisation (en/ar), libmpv interop                       (net8.0)
 src/Mashhad.Editing   FFmpeg wrapper: segments, keyframe index, command builder, planner, runner (net8.0)
-src/Mashhad.App       WinUI 3 app (Windows App SDK 1.7): window, native video host, panels   (net8.0-windows)
+src/Mashhad.App       WinUI 3 app (Windows App SDK 1.7): modes, views (built in C#), native video host,
+                      Play overlay window                                                 (net8.0-windows)
 tests/Mashhad.Tests   xUnit tests incl. real FFmpeg and headless libmpv integration tests
 installer/            Inno Setup script (file associations)
 scripts/              fetch-deps.ps1, build.ps1
 assets/brand/         logo
 ```
 
-How the video gets into a WinUI window: WinUI 3 has no native child-window control, so the app creates a plain
-Win32 child window, hands its handle to libmpv (`--wid`) and keeps it positioned over a placeholder element.
-mpv renders with its own D3D11 pipeline (zero-copy D3D11VA), which is the lowest-overhead path. The trade-off is
-that XAML cannot draw *on top of* the video, so controls sit around it and menus use separate popup windows.
+**How the video gets into a WinUI window.** WinUI 3 has no native child-window control, so the app does this:
+1. It creates a plain Win32 child window and hands its handle to libmpv (`--wid`).
+2. It keeps that window over the area the current mode gives the video: the whole window in Play, the preview in
+   Edit. During mode changes it moves the window smoothly.
+3. mpv renders with its own D3D11 pipeline (zero-copy D3D11VA), which is the lowest-overhead path.
+
+XAML cannot draw *on top of* that window. So Play mode's floating chrome lives in a separate, borderless,
+transparent overlay window that the main window owns and keeps exactly over its client area. If the overlay
+cannot be created, the controls dock below the video instead.
+
+**Views.** The views (folder, editor, player chrome, settings) are built in C# rather than XAML. That lets the
+whole app type-check off Windows.
 
 ### Verification
 
@@ -158,19 +178,21 @@ Verified in automated tests (run on Linux, and again on Windows in CI):
   speed, A-B loop, resume start position, still images with zoom/pan/rotate, error paths, and every mpv
   command/property the app uses.
 
-See the pull request / CI run for the state of the Windows build and the app smoke test
-(`Mashhad.exe --smoke-test`, which opens the window, exercises the panels, language switch and edit mode, and
-plays a real video and image).
+On Windows, CI also builds the app and runs `Mashhad.exe --smoke-test`. On a folder this is a tour: Folder →
+Play (real video playback) → Edit (keyframes, waveform, thumbnails, segments, export preview) → Arabic RTL in
+each mode → an image with the info panel. CI screenshots each step and prints the images into the job log. It
+also starts the app empty, on a single video (with and without the overlay window) and on a single image.
 
 ### Known gaps
 
 - The UI has been exercised only by the automated smoke test, **not by a person on a real desktop**: expect
   visual rough edges. GPU hardware decoding cannot be exercised on CI machines (no GPU).
-- Controls cannot overlay the video (see above); in full screen the bar appears when the pointer nears the
-  bottom edge and the video area resizes slightly while it is shown.
+- The Play chrome floats over the video in a transparent window. Its panels are translucent but not blurred
+  (true acrylic cannot see the video window), and the pointer is not hidden when the chrome fades.
+- The approved design is dark only; there is no light theme.
 - "Preload" warms the OS file cache for the neighbouring files; it does not pre-decode them.
-- Lossless JPEG rotation/crop, video crop, per-stream selection on export, chapters editing, a thumbnail strip,
-  waveform, and segment labels in the UI are not implemented.
+- Not implemented: lossless JPEG rotation/crop, video crop, choosing individual streams on export (all tracks or
+  video+audio+subtitles), chapter editing, renaming segments in the UI, zooming the timeline.
 - HEIC/AVIF depend on the decoders in the bundled libmpv build.
 - x64 only; no MSIX/Store package; no code signing (SmartScreen will warn on the installer).
 
@@ -185,15 +207,21 @@ plays a real video and image).
 
 - **المحرك:** مكتبة **libmpv** مضمَّنة لعرض الفيديو والصور، و**FFmpeg** للتحرير والتصدير. فكّ الترميز بالعتاد
   (**D3D11VA**) مفعّل افتراضيًا. واجهة **WinUI 3** أصلية — بلا Electron ولا متصفح.
-- **معرض موحَّد:** افتح أي ملف وتصفّح *كل الصور والفيديوهات في المجلد نفسه* بمفاتيح الأسهم. تُقرأ الملفات المجاورة
-  مسبقًا في الخلفية ليُفتح التالي دون انتظار القرص.
+- **ثلاثة أوضاع في نافذة واحدة:**
+  - **المجلد:** تصفّح الصور والفيديو معًا في شبكة مرتّبة حسب التاريخ، مع لوحة مجلدات وتصفية وبحث وتحديد متعدد.
+  - **التشغيل:** بأسلوب Cinema؛ الصورة تملأ النافذة وأدوات التحكم عائمة فوقها ثم تختفي.
+  - **التحرير:** بأسلوب Studio؛ محرر بلا فقد بخط زمني متعدد المسارات.
+
+  التنقل بين الأوضاع متحرك، و`Esc` يعود دائمًا خطوة إلى الوراء.
+- **معرض موحَّد:** مفاتيح الأسهم تتنقل بين *كل الصور والفيديوهات في المجلد نفسه*، وتُقرأ الملفات المجاورة مسبقًا.
 - **الفيديو:** كل الصيغ التي يدعمها FFmpeg، الترجمات (المضمّنة والخارجية وبالسحب والإفلات)، اختيار مسار الصوت
   والترجمة، السرعة، التنقل إطارًا بإطار، تكرار A-B، لقطات الشاشة، متابعة التشغيل من موضع التوقف، قوائم التشغيل.
 - **الصور:** JPG و PNG و WebP و GIF المتحركة، و HEIC/AVIF حيث أمكن؛ تكبير عند المؤشر، تحريك، تدوير، لوحة EXIF، قص.
 - **تحرير بلا فقد:** نقاط بداية ونهاية على الخط الزمني، مقاطع متعددة، قص ودمج بنسخ المسارات (دون إعادة ترميز)،
   قص يراعي الإطارات المفتاحية، تصدير الإطارات، تحويل الحاوية إلى MKV/MP4/MOV.
 - **عرض شرائح** يمزج الصور (بمدة محددة) والفيديو (حتى نهايته).
-- **العربية والإنجليزية**، اتجاه من اليمين إلى اليسار، مظهر داكن وفاتح، وألوان مشتقة من الشعار.
+- **العربية والإنجليزية** مع تخطيط كامل من اليمين إلى اليسار، بمظهر داكن وتدرّج العلامة القرمزي
+  (`#FF5E7E → #E6223F → #8E1035`).
 
 ### الحالة
 
@@ -216,7 +244,10 @@ plays a real video and image).
 | عرض الشرائح | `F5` |
 | الصور: تكبير / تصغير / ملاءمة / ‎100% | `+` / `-` / `0` / `1`، عجلة الفأرة، السحب للتحريك |
 | الصور: تدوير / قص | `R` / `C` |
-| وضع التحرير بلا فقد | `Ctrl`+`E` |
+| رجوع (ملء الشاشة ← التحرير ← التشغيل ← المجلد) | `Esc` |
+| المجلد: تنقّل / فتح / تحديد / تحديد الكل / حذف | الأسهم / `Enter` / `Space` / `Ctrl`+`A` / `Delete` (سلة المحذوفات) |
+| المجلد: تثبيت لوحة المجلدات أو إخفاؤها تلقائيًا | `F9` |
+| وضع التحرير بلا فقد (التشغيل ⇄ التحرير) | `Ctrl`+`E` |
 | التحرير: بداية / نهاية / مقطع جديد / تقسيم / حذف | `I` / `O` / `+` / `B` / `Delete` |
 | التحرير: الإطار المفتاحي السابق / التالي | `Alt`+`←` / `Alt`+`→` |
 | التحرير: تصدير | `Ctrl`+`Enter` |
@@ -302,15 +333,18 @@ dotnet test tests/Mashhad.Tests
 - **الربط مع libmpv حقيقي** (دون شاشة): التحميل، الخصائص والأحداث، التنقل الدقيق، إطار بإطار، السرعة، تكرار A-B،
   موضع المتابعة، الصور الثابتة مع التكبير والتدوير، ومسارات الخطأ.
 
-راجع طلب الدمج / تشغيل الـ CI لمعرفة حالة بناء ويندوز واختبار التشغيل الآلي للتطبيق.
+على ويندوز يبني الـ CI التطبيق ويشغّل جولة آلية: المجلد ← التشغيل (فيديو حقيقي) ← التحرير ← العربية في كل وضع ←
+صورة مع لوحة المعلومات، ويلتقط صورة لكل خطوة.
 
 ### النواقص المعروفة
 
 - الواجهة جُرّبت بالاختبار الآلي فقط، **ولم يجرّبها إنسان على سطح مكتب حقيقي**: توقّع بعض العيوب الشكلية. ولا يمكن
   اختبار فك الترميز بالعتاد على أجهزة CI (بلا بطاقة رسوميات).
-- لا يمكن رسم عناصر التحكم فوق الفيديو؛ في وضع ملء الشاشة يظهر الشريط عند اقتراب المؤشر من الحافة السفلية.
+- أدوات التشغيل العائمة في نافذة شفافة فوق الفيديو: ألواحها شبه شفافة بلا تمويه، والمؤشر لا يُخفى عند اختفاء الأدوات.
+- التصميم المعتمد داكن فقط؛ لا يوجد مظهر فاتح.
 - «التحميل المسبق» يُدفئ ذاكرة الملفات المؤقتة للملفات المجاورة ولا يفك ترميزها مسبقًا.
-- غير منفَّذ بعد: تدوير/قص JPEG بلا فقد، قص الفيديو، اختيار المسارات عند التصدير، شريط مصغّرات، تسمية المقاطع.
+- غير منفَّذ بعد: تدوير/قص JPEG بلا فقد، قص الفيديو، اختيار مسارات بعينها عند التصدير، تحرير الفصول، إعادة تسمية
+  المقاطع من الواجهة، تكبير الخط الزمني.
 - ‏x64 فقط؛ لا حزمة MSIX؛ المثبِّت غير موقَّع رقميًا.
 
 </div>

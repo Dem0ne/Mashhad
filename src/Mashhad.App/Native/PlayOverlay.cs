@@ -62,10 +62,14 @@ internal sealed class PlayOverlay
 
     public bool Visible => _visible;
 
+    private bool _activatedOnce;
+
     public void Show(bool activate)
     {
         _visible = true;
-        Window.AppWindow.Show(activate);
+        // The first time, Activate() so that WinUI starts rendering the window's content.
+        if (!_activatedOnce) { _activatedOnce = true; Window.Activate(); }
+        else Window.AppWindow.Show(activate);
         if (activate) Win32.SetForegroundWindow(Handle);
     }
 

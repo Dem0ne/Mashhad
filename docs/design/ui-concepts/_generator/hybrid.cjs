@@ -10,14 +10,14 @@ const studio = require('./studio.cjs').parts;
 const HY = `
 .acrylic{background:rgba(26,28,32,.58);backdrop-filter:blur(28px) saturate(150%);border:1px solid rgba(255,255,255,.09);
   box-shadow:0 18px 50px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06)}
-.hy-wall{position:absolute;inset:0;background:radial-gradient(900px 420px at 15% -8%,rgba(47,216,184,.16),transparent 70%),
-  radial-gradient(900px 500px at 95% -10%,rgba(47,91,227,.20),transparent 70%),#0b0c0f}
+.hy-wall{position:absolute;inset:0;background:radial-gradient(900px 420px at 15% -8%,rgba(255,94,126,.16),transparent 70%),
+  radial-gradient(900px 500px at 95% -10%,rgba(142,16,53,.20),transparent 70%),#0b0c0f}
 .hy-title{position:absolute;top:9px;inset-inline-start:12px;height:34px;display:flex;align-items:center;gap:10px;padding:0 14px 0 10px;border-radius:17px;z-index:20;font-size:13.5px}
 html[dir=rtl] .hy-title{padding:0 10px 0 14px}
 .hy-title b{font-weight:600}.hy-title .c{color:rgba(255,255,255,.6)}
 .hy-modes{position:absolute;top:7px;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:4px;border-radius:21px;z-index:20}
 .hy-modes span{height:30px;padding:0 15px;border-radius:15px;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:rgba(255,255,255,.72)}
-.hy-modes span.on{background:${BRAND};color:#fff;box-shadow:0 3px 14px rgba(22,163,217,.45),inset 0 1px 0 rgba(255,255,255,.25)}
+.hy-modes span.on{background:${BRAND};color:#fff;box-shadow:0 3px 14px rgba(230,34,63,.45),inset 0 1px 0 rgba(255,255,255,.25)}
 .hy-caps{position:absolute;top:0;inset-inline-end:0;z-index:20}
 .hy-search{position:absolute;top:9px;inset-inline-end:156px;height:34px;width:250px;border-radius:17px;display:flex;align-items:center;gap:9px;padding:0 14px;
   font-size:13px;color:rgba(255,255,255,.55);z-index:20}
@@ -73,9 +73,9 @@ html[dir=rtl] .ghd h1{letter-spacing:0}
 .jt{border-radius:10px;overflow:hidden;position:relative;flex:none}
 .jt .b{position:absolute;inset-inline-start:8px;bottom:8px}
 .jt .ck{position:absolute;top:8px;inset-inline-start:8px}
-.jt.sel{box-shadow:0 0 0 2px #0b0c0f,0 0 0 4px #2FD8B8}
+.jt.sel{box-shadow:0 0 0 2px #0b0c0f,0 0 0 4px #FF5E7E}
 .jt.sel>.thumb{opacity:.82}
-.jt.focus{transform:scale(1.04);z-index:2;box-shadow:0 0 0 3px #0b0c0f,0 0 0 6px #2FD8B8,0 24px 50px rgba(0,0,0,.7)}
+.jt.focus{transform:scale(1.04);z-index:2;box-shadow:0 0 0 3px #0b0c0f,0 0 0 6px #FF5E7E,0 24px 50px rgba(0,0,0,.7)}
 .jt .cap{position:absolute;left:0;right:0;bottom:0;padding:30px 12px 10px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.78));font-size:12.5px}
 .jt .cap b{display:block;font-weight:600;font-size:13.5px}
 .fade{position:absolute;left:0;right:0;bottom:0;height:150px;background:linear-gradient(rgba(11,12,15,0),#0b0c0f 90%);z-index:3}
@@ -166,8 +166,8 @@ body{background:#0b0c0f}
 .trk .hdr{background:rgba(255,255,255,.025)!important;border-color:rgba(255,255,255,.05)!important}
 .trk .lane{border-color:rgba(255,255,255,.04)!important}
 .binrow{border-bottom-color:rgba(255,255,255,.035)}
-.binrow.on{background:rgba(47,216,184,.12);box-shadow:inset 3px 0 0 #2FD8B8}
-html[dir=rtl] .binrow.on{box-shadow:inset -3px 0 0 #2FD8B8}
+.binrow.on{background:rgba(255,94,126,.12);box-shadow:inset 3px 0 0 #FF5E7E}
+html[dir=rtl] .binrow.on{box-shadow:inset -3px 0 0 #FF5E7E}
 .tool{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.08)}
 .tabs span.on::after{left:18%;right:18%}
 `;
@@ -184,7 +184,7 @@ function edit({ rtl = false } = {}) {
     ${studio.bin({ x: L(g, binW), y: top, w: binW, h: upH, rtl })}
     <div class="preview" style="left:${L(prevX, prevW)}px;top:${top}px;width:${prevW}px;height:${prevH}px">${scene('dunes', 11, 1.8)}
       <div class="ovl" style="top:10px;${rtl ? 'right' : 'left'}:10px"><span class="num">3840×2160</span><span class="num">HEVC · HDR10</span><span class="num">29.97 fps</span></div>
-      <div class="ovl" style="top:10px;${rtl ? 'left' : 'right'}:10px"><span style="background:rgba(22,163,217,.85);color:#fff">${icon('scissors', 's14')}${rtl ? 'المقطع 2 من 3' : 'Segment 2 of 3'}</span></div></div>
+      <div class="ovl" style="top:10px;${rtl ? 'left' : 'right'}:10px"><span style="background:rgba(230,34,63,.85);color:#fff">${icon('scissors', 's14')}${rtl ? 'المقطع 2 من 3' : 'Segment 2 of 3'}</span></div></div>
     ${studio.transport({ x: L(prevX, prevW), y: top + prevH + 8, w: prevW, rtl, mode: 2 })}
     <div class="panel" style="left:${L(1600 - g - inspW, inspW)}px;top:${top}px;width:${inspW}px;height:${upH}px">${studio.inspectorCut(rtl)}</div>
     ${studio.timeline({ x: g, y: tlY, w: 1600 - 2 * g, h: tlH, mode: 2, rtl })}`
@@ -196,17 +196,17 @@ function storyboard(dir) {
   const img = (f) => `data:image/png;base64,${fs.readFileSync(path.join(dir, f)).toString('base64')}`;
   const card = (f, t, d) => `<div class="sb"><img src="${img(f)}"><b>${t}</b><span>${d}</span></div>`;
   const arrow = (t, d) => `<div class="ar"><div class="ln">${icon('fwd', 's24')}</div><b>${t}</b><span>${d}</span></div>`;
-  const css = `body{background:radial-gradient(1000px 500px at 50% -10%,rgba(22,163,217,.16),transparent 70%),#0b0c0f;padding:46px 44px}
+  const css = `body{background:radial-gradient(1000px 500px at 50% -10%,rgba(230,34,63,.16),transparent 70%),#0b0c0f;padding:46px 44px}
   h1{font-size:30px;font-weight:700;letter-spacing:-.02em}h1+p{color:rgba(255,255,255,.6);margin:6px 0 30px;font-size:15px}
   .row{display:flex;align-items:flex-start;gap:14px}
   .sb{width:400px;flex:none}.sb img{width:400px;height:250px;border-radius:12px;display:block;box-shadow:0 0 0 1px rgba(255,255,255,.1),0 18px 40px rgba(0,0,0,.5)}
   .sb b{display:block;margin-top:12px;font-size:16px}.sb span{display:block;color:rgba(255,255,255,.6);font-size:13px;margin-top:3px;line-height:1.45}
-  .ar{width:120px;flex:none;padding-top:86px;text-align:center}.ar .ln{width:52px;height:52px;margin:0 auto 10px;border-radius:50%;background:${BRAND};display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(22,163,217,.45)}
+  .ar{width:120px;flex:none;padding-top:86px;text-align:center}.ar .ln{width:52px;height:52px;margin:0 auto 10px;border-radius:50%;background:${BRAND};display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(230,34,63,.45)}
   .ar b{display:block;font-size:13px}.ar span{display:block;font-size:11.5px;color:rgba(255,255,255,.55);margin-top:4px;line-height:1.4}
   .tokens{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:40px}
   .tk{border-radius:14px;padding:16px 18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
   .tk b{display:flex;align-items:center;gap:8px;font-size:14px}.tk p{font-size:12.5px;color:rgba(255,255,255,.62);margin-top:6px;line-height:1.5}
-  .tk code{font-family:"JetBrains Mono",monospace;font-size:11.5px;color:#7ef0d8}
+  .tk code{font-family:"JetBrains Mono",monospace;font-size:11.5px;color:#ffa8b8}
   .low{display:flex;gap:28px;margin-top:34px;align-items:flex-start}
   .low h2{font-size:17px;font-weight:600;margin-bottom:12px}
   .keys{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px 28px}

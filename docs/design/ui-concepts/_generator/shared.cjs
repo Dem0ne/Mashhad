@@ -22,7 +22,7 @@ function rng(seed) {
 // ---------------------------------------------------------------------------------------------
 // Design tokens (Fluent dark + brand)
 // ---------------------------------------------------------------------------------------------
-const BRAND = 'linear-gradient(135deg,#2FD8B8 0%,#16A3D9 50%,#2F5BE3 100%)';
+const BRAND = 'linear-gradient(135deg,#FF5E7E 0%,#E6223F 50%,#8E1035 100%)';
 
 const BASE_CSS = `
 *{box-sizing:border-box;margin:0;padding:0}
@@ -46,7 +46,7 @@ html[dir=rtl] body{font-family:"Noto Sans Arabic","Noto Kufi Arabic",Inter,sans-
 .btn{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:6px;font-size:13.5px;font-weight:500;
   background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:#fff;white-space:nowrap}
 .btn.subtle{background:transparent;border-color:transparent}
-.btn.accent{background:${BRAND};border:0;color:#fff;font-weight:600;box-shadow:0 4px 18px rgba(22,163,217,.35),inset 0 1px 0 rgba(255,255,255,.25)}
+.btn.accent{background:${BRAND};border:0;color:#fff;font-weight:600;box-shadow:0 4px 18px rgba(230,34,63,.35),inset 0 1px 0 rgba(255,255,255,.25)}
 .btn.icon{width:36px;padding:0;justify-content:center}
 .toggle{width:40px;height:20px;border-radius:10px;position:relative;flex:none;border:1px solid rgba(255,255,255,.55)}
 .toggle::after{content:"";position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.8)}
@@ -288,7 +288,7 @@ function scene(kind, seed = 1, t = 0) {
     case 'aurora': {
       for (let i = 0; i < 90; i++) b += `<circle cx="${(r() * 160).toFixed(1)}" cy="${(r() * 70).toFixed(1)}" r="${(r() * .4 + .1).toFixed(2)}" fill="#fff" opacity="${(r() * .8 + .2).toFixed(2)}"/>`;
       defs += `<filter id="${id}b" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3.5"/></filter>`;
-      [['#2FD8B8', 30, .8], ['#47f08a', 40, .55], ['#7a5cff', 22, .45]].forEach(([c, y, o], i) => {
+      [['#FF5E7E', 30, .8], ['#47f08a', 40, .55], ['#7a5cff', 22, .45]].forEach(([c, y, o], i) => {
         const pts = []; for (let x = -10; x <= 170; x += 10) pts.push([x, y + Math.sin(x * .05 + ph + i) * 8]);
         b += `<path d="${smooth(pts)}" stroke="${c}" stroke-width="${10 - i * 2}" fill="none" opacity="${o}" filter="url(#${id}b)"/>`;
       });
@@ -331,7 +331,7 @@ function scene(kind, seed = 1, t = 0) {
     }
     case 'bokeh': {
       defs += `<filter id="${id}k"><feGaussianBlur stdDeviation="1.6"/></filter>`;
-      const pal = ['#ffb36b', '#ff7a8a', '#ffd88a', '#7ad6ff', '#2FD8B8'];
+      const pal = ['#ffb36b', '#ff7a8a', '#ffd88a', '#7ad6ff', '#FF5E7E'];
       let s = '';
       for (let i = 0; i < 26; i++) s += `<circle cx="${(r() * 170 - 5).toFixed(1)}" cy="${(r() * 100).toFixed(1)}" r="${(3 + r() * 11).toFixed(1)}" fill="${pal[Math.floor(r() * pal.length)]}" opacity="${(r() * .45 + .15).toFixed(2)}"/>`;
       b += `<g filter="url(#${id}k)">${s}</g>`;
