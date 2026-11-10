@@ -33,6 +33,13 @@ public sealed partial class MainWindow : Window
     private readonly bool _smokeTest;
     private readonly IReadOnlyList<string> _startupFiles;
 
+    /// <summary>
+    /// The UI thread's dispatcher, captured once on that thread. Reading <c>Window.DispatcherQueue</c>
+    /// from libmpv's event thread or a worker is itself a cross-thread XAML access, so callbacks from
+    /// other threads must only ever use this field.
+    /// </summary>
+    private readonly DispatcherQueue _ui;
+
     private VideoHost? _host;
     private MpvPlayer? _mpv;
     private bool _closed;
@@ -51,6 +58,7 @@ public sealed partial class MainWindow : Window
         Loc.SetLanguage(Settings.Language);
 
         InitializeComponent();
+        _ui = DispatcherQueue.GetForCurrentThread();
         Trace("ctor: XAML loaded");
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
 
@@ -81,12 +89,12 @@ public sealed partial class MainWindow : Window
         VideoArea.LayoutUpdated += (_, _) => SyncVideoHostBounds();
         Closed += MainWindow_Closed;
 
-        _chromeTimer = DispatcherQueue.CreateTimer();
+        _chromeTimer = _ui.CreateTimer();
         _chromeTimer.Interval = TimeSpan.FromSeconds(2.5);
         _chromeTimer.IsRepeating = false;
         _chromeTimer.Tick += (_, _) => HideFullscreenChrome();
 
-        _slideshowTimer = DispatcherQueue.CreateTimer();
+        _slideshowTimer = _ui.CreateTimer();
         _slideshowTimer.IsRepeating = false;
         _slideshowTimer.Tick += (_, _) => SlideshowAdvance();
 
@@ -292,7 +300,7 @@ public sealed partial class MainWindow : Window
     private void RunOnUi(Action action)
     {
         if (_closed) return;
-        DispatcherQueue.TryEnqueue(() =>
+        _ui.TryEnqueue(() =>
         {
             if (_closed) return;
             try { action(); }

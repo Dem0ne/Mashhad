@@ -417,7 +417,7 @@ public sealed partial class MainWindow
         Log.Write($"SMOKE: window loaded, mpv={( _mpv is not null)}, files={_startupFiles.Count}, lang={Loc.Current.Language}");
         var started = DateTime.UtcNow;
         bool exercised = false;
-        var timer = DispatcherQueue.CreateTimer();
+        var timer = _ui.CreateTimer();
         timer.Interval = TimeSpan.FromMilliseconds(250);
         timer.IsRepeating = true;
         timer.Tick += (_, _) =>

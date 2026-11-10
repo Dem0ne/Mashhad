@@ -63,6 +63,15 @@ jobs:
           & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=1280x720:rate=1" -frames:v 1 -update 1 "smoke\photo.png"
           if (-not (Test-Path "smoke\photo.png")) { throw "could not create test media" }
 
+          # Keep a minidump of any crash so it can be analysed below.
+          $dumps = "$PWD\smoke\dumps"
+          New-Item -ItemType Directory -Force $dumps | Out-Null
+          $wer = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Mashhad.exe'
+          New-Item -Path $wer -Force | Out-Null
+          New-ItemProperty -Path $wer -Name DumpFolder -Value $dumps -PropertyType ExpandString -Force | Out-Null
+          New-ItemProperty -Path $wer -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
+          $cdb = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+
           $failed = $false
           $cases = @(
             @{ Name = 'ui-only'; Args = @(); NoEngine = $true },
@@ -87,6 +96,17 @@ jobs:
               Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $started } -ErrorAction SilentlyContinue |
                 Where-Object { $_.ProviderName -in 'Application Error', '.NET Runtime', 'Windows Error Reporting' } |
                 ForEach-Object { Write-Host "--- [$($_.ProviderName)] $($_.TimeCreated)"; Write-Host $_.Message }
+              $dmp = Get-ChildItem $dumps -Filter *.dmp -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $started } |
+                Sort-Object LastWriteTime -Descending | Select-Object -First 1
+              if ($dmp -and $cdb) {
+                $report = "$PWD\smoke\$($case.Name)-analyze.txt"
+                & $cdb.FullName -z $dmp.FullName -y 'srv*C:\symcache*https://msdl.microsoft.com/download/symbols' -logo $report `
+                  -c '!analyze -v; .ecxr; kc 40; q' | Out-Null
+                Write-Host "--- crash analysis ($($dmp.Name))"
+                Select-String -Path $report -Pattern 'EXCEPTION_CODE_STR|ERROR_CODE|STOWED_EXCEPTION|EXCEPTION_MESSAGE|FAILURE_BUCKET_ID|SYMBOL_NAME|FAULTING_THREAD' |
+                  ForEach-Object { Write-Host $_.Line }
+                Select-String -Path $report -Pattern '^STACK_TEXT' -Context 0,30 | ForEach-Object { $_.Context.PostContext | ForEach-Object { Write-Host $_ } }
+              } elseif (-not $cdb) { Write-Host "(cdb not found; dump kept in smoke-logs)" }
             }
           }
           Remove-Item Env:MASHHAD_DISABLE_ENGINE -ErrorAction SilentlyContinue
@@ -107,5 +127,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: smoke-logs
-          path: smoke/*.log
+          path: |
+            smoke/*.log
+            smoke/*-analyze.txt
+            smoke/dumps/*.dmp
           if-no-files-found: ignore
