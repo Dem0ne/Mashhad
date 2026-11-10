@@ -12,15 +12,31 @@
   #define OutputDir "..\dist"
 #endif
 
+; BitSync family layout (same as WAZN, Hawas and Khatwat; mirrors src/Mashhad.Core/Install/InstallLayout.cs,
+; a unit test keeps them in sync):
+;   program     %ProgramFiles%\BitSync\Mashhad      ({commonpf64}: the Program Files known folder, never a fixed drive)
+;   marker      %ProgramFiles%\BitSync\Mashhad\mashhad-install.json
+;   uninstall   HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\BitSync.Mashhad
+;   shortcut    Start menu (all users)\Programs\BitSync\Mashhad.lnk   (group shared by every BitSync app)
+; Uninstall removes only Mashhad's folder; the shared BitSync folder and Start-menu group go only when empty.
+#define Family "BitSync"
+#define ProductFolder "Mashhad"
+#define UninstallKey "Software\Microsoft\Windows\CurrentVersion\Uninstall\BitSync.Mashhad"
+
 [Setup]
 AppId={{6E0B5B5C-6A0D-4C2B-9B7F-4D41534848A1}
 AppName=Mashhad
 AppVersion={#AppVersion}
 AppVerName=Mashhad {#AppVersion}
-AppPublisher=Mashhad
-DefaultDirName={autopf}\Mashhad
-DefaultGroupName=Mashhad
+AppPublisher={#Family}
+DefaultDirName={commonpf64}\{#Family}\{#ProductFolder}
+DisableDirPage=yes
+UsePreviousAppDir=no
+DefaultGroupName={#Family}
 DisableProgramGroupPage=yes
+UsePreviousGroup=no
+; The uninstall entry is BitSync.Mashhad (written in [Registry] below), not Inno's own "<AppId>_is1".
+CreateUninstallRegKey=no
 UninstallDisplayIcon={app}\Mashhad.exe
 SetupIconFile=..\src\Mashhad.App\Assets\Mashhad.ico
 OutputDir={#OutputDir}
@@ -30,9 +46,8 @@ SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
-; Per-user by default (no admin prompt); the dialog lets the user choose "for all users".
-PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
+; Program Files and HKLM: a per-machine install (HKA below therefore means HKLM).
+PrivilegesRequired=admin
 ChangesAssociations=yes
 WizardStyle=modern
 ShowLanguageDialog=auto
@@ -59,7 +74,8 @@ ar.OpenWith=فتح بواسطة «مشهد»
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Mashhad"; Filename: "{app}\Mashhad.exe"
+; {group} is the all-users Start menu "BitSync" group shared with the other BitSync apps.
+Name: "{group}\Mashhad"; Filename: "{app}\Mashhad.exe"
 Name: "{autodesktop}\Mashhad"; Filename: "{app}\Mashhad.exe"; Tasks: desktopicon
 
 [Run]
@@ -67,6 +83,18 @@ Filename: "{app}\Mashhad.exe"; Description: "{cm:LaunchProgram,Mashhad}"; Flags:
 Filename: "ms-settings:defaultapps"; Description: "{cm:OpenDefaults}"; Flags: shellexec nowait postinstall skipifsilent unchecked; Tasks: associate
 
 [Registry]
+; Uninstall entry (Settings > Apps): HKLM\...\Uninstall\BitSync.Mashhad.
+Root: HKLM; Subkey: "{#UninstallKey}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "{#UninstallKey}"; ValueType: string; ValueName: "DisplayName"; ValueData: "Mashhad"
+Root: HKLM; Subkey: "{#UninstallKey}"; ValueType: string; ValueName: "DisplayVersion"; ValueData: "{#AppVersion}"
+Root: HKLM; Subkey: "{#UninstallKey}"; ValueType: string; ValueName: "Publisher"; ValueData: "{#Family}"
+Root: HKLM; Subkey: "{#UninstallKey}"; ValueType: string; ValueName: "DisplayIcon"; ValueData: "{app}\Mashhad.exe"
+Root: HKLM; Subkey: "{#UninstallKey}"; ValueType: string; ValueName: "InstallLocation"; ValueData: "{app}"
+Root: HKLM; Subkey: "{#UninstallKey}"; ValueType: string; ValueName: "UninstallString"; ValueData: """{uninstallexe}"""
+Root: HKLM; Subkey: "{#UninstallKey}"; ValueType: string; ValueName: "QuietUninstallString"; ValueData: """{uninstallexe}"" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
+Root: HKLM; Subkey: "{#UninstallKey}"; ValueType: dword; ValueName: "NoModify"; ValueData: 1
+Root: HKLM; Subkey: "{#UninstallKey}"; ValueType: dword; ValueName: "NoRepair"; ValueData: 1
+
 ; Application registration ("Open with" list, friendly name, supported types).
 Root: HKA; Subkey: "Software\Classes\Applications\Mashhad.exe"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "Mashhad"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\Applications\Mashhad.exe\shell\open\command"; ValueType: string; ValueData: """{app}\Mashhad.exe"" ""%1"""
@@ -283,3 +311,59 @@ Root: HKA; Subkey: "Software\Classes\Applications\Mashhad.exe\SupportedTypes"; V
 Root: HKA; Subkey: "Software\Classes\.amr\OpenWithProgids"; ValueType: string; ValueName: "Mashhad.Audio"; ValueData: ""; Flags: uninsdeletevalue; Tasks: associate
 Root: HKA; Subkey: "Software\Mashhad\Capabilities\FileAssociations"; ValueType: string; ValueName: ".amr"; ValueData: "Mashhad.Audio"; Tasks: associate
 Root: HKA; Subkey: "Software\Classes\Applications\Mashhad.exe\SupportedTypes"; ValueType: string; ValueName: ".amr"; ValueData: ""
+
+[Code]
+// Writes the BitSync install marker next to the program.
+function JsonEscape(const Value: String): String;
+begin
+  Result := Value;
+  StringChangeEx(Result, '\', '\\', True);
+  StringChangeEx(Result, '"', '\"', True);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Json: String;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    Json :=
+      '{' + #13#10 +
+      '  "family": "{#Family}",' + #13#10 +
+      '  "product": "{#ProductFolder}",' + #13#10 +
+      '  "version": "{#AppVersion}",' + #13#10 +
+      '  "installDir": "' + JsonEscape(ExpandConstant('{app}')) + '",' + #13#10 +
+      '  "uninstallKey": "' + JsonEscape('HKLM\{#UninstallKey}') + '",' + #13#10 +
+      '  "installedAt": "' + GetDateTimeString('yyyy/mm/dd hh:nn:ss', '-', ':') + '"' + #13#10 +
+      '}' + #13#10;
+    if not SaveStringToFile(ExpandConstant('{app}\mashhad-install.json'), Json, False) then
+      Log('Could not write the install marker.');
+  end;
+end;
+
+// True only for "...\BitSync\Mashhad": the one folder uninstall may delete as a whole.
+function IsOwnInstallDir(const Dir: String): Boolean;
+var
+  D: String;
+begin
+  D := RemoveBackslashUnlessRoot(Dir);
+  Result := (CompareText(ExtractFileName(D), '{#ProductFolder}') = 0) and
+            (CompareText(ExtractFileName(ExtractFileDir(D)), '{#Family}') = 0);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  AppDir: String;
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    AppDir := ExpandConstant('{app}');
+    // Mashhad's own folder, including anything created after install (the marker, logs).
+    if IsOwnInstallDir(AppDir) and DirExists(AppDir) then
+      DelTree(AppDir, True, True, True);
+    // Shared BitSync folder and Start-menu group: RemoveDir only removes an empty folder,
+    // so other BitSync apps (WAZN, Hawas, Khatwat) are never touched.
+    RemoveDir(ExpandConstant('{commonpf64}\{#Family}'));
+    RemoveDir(ExpandConstant('{commonprograms}\{#Family}'));
+  end;
+end;

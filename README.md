@@ -132,9 +132,27 @@ instead, pin exact versions with `-MpvUrl` / `-FfmpegUrl`, or point the app at a
 binaries that bundle them you must comply with those licences. This repository does not yet contain a licence
 file for Mashhad's own code — that choice is the owner's.
 
+### Install location (BitSync layout)
+
+Mashhad installs like the other BitSync apps (WAZN, Hawas, Khatwat), for all users (the installer asks for
+administrator rights):
+
+| | |
+| --- | --- |
+| Program | `%ProgramFiles%\BitSync\Mashhad` (Program Files comes from the known folder, never a fixed drive) |
+| Install marker | `%ProgramFiles%\BitSync\Mashhad\mashhad-install.json` (family, product, version, folder, uninstall key) |
+| Uninstall entry | `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\BitSync.Mashhad` |
+| Start menu | the shared **BitSync** group (all users) → `Mashhad` |
+
+Uninstalling removes only Mashhad's own folder, shortcut and keys. The shared `BitSync` folder and Start-menu
+group are removed only when they are empty, so other BitSync apps are never touched; settings in
+`%LOCALAPPDATA%\Mashhad` are kept. `src/Mashhad.Core/Install/InstallLayout.cs` describes the layout, a test
+keeps `installer/Mashhad.iss` in line with it, and CI installs and uninstalls for real next to a stand-in
+BitSync app. The portable zip runs from anywhere and installs nothing.
+
 ### File associations and default app
 
-The installer (per-user by default, no admin prompt) registers Mashhad for common image, video and audio
+The installer registers Mashhad for common image, video and audio
 extensions through `OpenWithProgids` and `RegisteredApplications`. Windows 10/11 do not allow an app to make
 itself the default silently, so the last step is yours: **Settings → Apps → Default apps → Mashhad** (the
 installer and the in-app Settings panel both offer a shortcut to that page). Opening a second file reuses the
@@ -149,7 +167,7 @@ src/Mashhad.Editing   FFmpeg wrapper: segments, keyframe index, command builder,
 src/Mashhad.App       WinUI 3 app (Windows App SDK 1.7): modes, views (built in C#), native video host,
                       Play overlay window                                                 (net8.0-windows)
 tests/Mashhad.Tests   xUnit tests incl. real FFmpeg and headless libmpv integration tests
-installer/            Inno Setup script (file associations)
+installer/            Inno Setup script (BitSync install layout, file associations)
 scripts/              fetch-deps.ps1, build.ps1
 assets/brand/         logo
 ```
@@ -335,9 +353,22 @@ dotnet test tests/Mashhad.Tests
 **ملاحظة ترخيص:** بناءات libmpv من shinchiro مرخّصة بـ GPL، وبناء FFmpeg المستخدم هنا بـ LGPL؛ توزيعها مع التطبيق
 يستلزم الالتزام بهذه التراخيص. ولم يُضَف بعدُ ملف ترخيص لشيفرة «مشهد» نفسها — القرار لمالك المستودع.
 
+### مكان التثبيت (تخطيط BitSync)
+
+يُثبَّت «مشهد» مثل بقية تطبيقات BitSync ‏(WAZN وHawas وKhatwat)، لكل المستخدمين (يطلب المثبِّت صلاحيات المدير):
+
+- البرنامج: `%ProgramFiles%\BitSync\Mashhad` (يُستخرج مجلد Program Files من المجلد المعروف، لا من حرف قرص ثابت).
+- علامة التثبيت: `mashhad-install.json` داخل مجلد البرنامج.
+- مدخل الإزالة: `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\BitSync.Mashhad`.
+- قائمة ابدأ: مجموعة **BitSync** المشتركة ← `Mashhad`.
+
+الإزالة تحذف مجلد «مشهد» واختصاره ومفاتيحه فقط، ولا يُحذف مجلد `BitSync` المشترك ولا مجموعته في قائمة ابدأ إلا إذا
+أصبحا فارغين، فلا تُمس تطبيقات BitSync الأخرى أبدًا؛ وتبقى الإعدادات في `%LOCALAPPDATA%\Mashhad`. ويثبّت الـ CI
+التطبيق ويزيله فعليًا بجوار تطبيق BitSync بديل للتأكد من ذلك. أما الملف المضغوط المحمول فيعمل من أي مكان دون تثبيت.
+
 ### ربط أنواع الملفات والتطبيق الافتراضي
 
-يسجّل المثبِّت (للمستخدم الحالي افتراضيًا، دون صلاحيات مدير) «مشهد» لأشهر امتدادات الصور والفيديو والصوت. ويندوز
+يسجّل المثبِّت «مشهد» لأشهر امتدادات الصور والفيديو والصوت. ويندوز
 10/11 لا يسمح لأي تطبيق بأن يجعل نفسه افتراضيًا تلقائيًا، فالخطوة الأخيرة عندك:
 **الإعدادات ← التطبيقات ← التطبيقات الافتراضية ← Mashhad**. فتح ملف ثانٍ يستخدم النافذة المفتوحة نفسها.
 

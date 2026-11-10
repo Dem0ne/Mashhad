@@ -60,6 +60,74 @@ jobs:
           MASHHAD_FONT_KEY: ${{ secrets.MASHHAD_FONT_KEY }}
         run: ./scripts/build.ps1 -SkipDeps -Zip -Installer
 
+      # BitSync family layout: install for real, then uninstall next to a stand-in for another
+      # BitSync app, which must be left untouched.
+      - name: Install and uninstall (BitSync layout)
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist -Filter 'Mashhad-Setup-*.exe' | Select-Object -First 1
+          if (-not $setup) { throw 'installer not built' }
+          $pf = [Environment]::GetFolderPath('ProgramFiles')
+          $programs = [Environment]::GetFolderPath('CommonPrograms')
+          $family = Join-Path $pf 'BitSync'
+          $app = Join-Path $family 'Mashhad'
+          $group = Join-Path $programs 'BitSync'
+          $key = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\BitSync.Mashhad'
+          $problems = @()
+
+          # A sibling BitSync app already installed (folder, marker, shortcut).
+          New-Item -ItemType Directory -Force (Join-Path $family 'Wazn'), $group | Out-Null
+          Set-Content (Join-Path $family 'Wazn\wazn-install.json') '{"family":"BitSync","product":"Wazn"}'
+          Set-Content (Join-Path $group 'Wazn.lnk') 'stand-in'
+
+          $p = Start-Process $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$PWD\dist\install.log" -Wait -PassThru
+          Write-Host "setup exit code $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { Get-Content dist\install.log -Tail 40; throw 'setup failed' }
+
+          if (-not (Test-Path (Join-Path $app 'Mashhad.exe'))) { $problems += "Mashhad.exe not in $app" }
+          $markerPath = Join-Path $app 'mashhad-install.json'
+          if (Test-Path $markerPath) {
+            $marker = Get-Content $markerPath -Raw | ConvertFrom-Json
+            Write-Host "marker: $($marker | ConvertTo-Json -Compress)"
+            if ($marker.family -ne 'BitSync' -or $marker.product -ne 'Mashhad' -or $marker.installDir -ne $app) { $problems += 'marker contents wrong' }
+          } else { $problems += 'install marker missing' }
+          if (-not (Test-Path (Join-Path $group 'Mashhad.lnk'))) { $problems += 'Start-menu shortcut missing from the BitSync group' }
+          $entry = Get-ItemProperty $key -ErrorAction SilentlyContinue
+          if (-not $entry) { $problems += "uninstall key $key missing" }
+          else {
+            Write-Host "uninstall entry: $($entry.DisplayName) $($entry.DisplayVersion) by $($entry.Publisher) at $($entry.InstallLocation)"
+            if ($entry.InstallLocation -ne $app) { $problems += 'InstallLocation wrong' }
+          }
+          $stray = Get-ChildItem 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall' | Where-Object { $_.PSChildName -like '*_is1' -and (Get-ItemProperty $_.PSPath).DisplayName -eq 'Mashhad' }
+          if ($stray) { $problems += "extra Inno uninstall key $($stray.PSChildName)" }
+          $fonts = @(Get-ChildItem $app -Recurse -Force -Include '*.otf', '*.ttf', '*.enc' -File)
+          if ($fonts.Count -gt 0) { $problems += "font files installed: $($fonts.Name -join ', ')" }
+
+          # Uninstall the way Settings > Apps does (the quiet variant), then wait for it to finish.
+          $uninstaller = ($entry.QuietUninstallString -replace '^"([^"]+)".*$', '$1')
+          Start-Process $uninstaller -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          $deadline = (Get-Date).AddSeconds(90)
+          while (((Test-Path $app) -or (Test-Path $key)) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+
+          if (Test-Path $app) { $problems += "Mashhad folder left behind: $(Get-ChildItem $app -Recurse -Force | Select-Object -ExpandProperty FullName)" }
+          if (Test-Path $key) { $problems += 'uninstall key left behind' }
+          if (Test-Path (Join-Path $group 'Mashhad.lnk')) { $problems += 'shortcut left behind' }
+          if (-not (Test-Path (Join-Path $family 'Wazn\wazn-install.json'))) { $problems += 'the other BitSync app was touched' }
+          if (-not (Test-Path (Join-Path $group 'Wazn.lnk'))) { $problems += "the other app's shortcut was touched" }
+
+          # Alone, the shared folder and group go away with Mashhad.
+          Remove-Item (Join-Path $family 'Wazn'), (Join-Path $group 'Wazn.lnk') -Recurse -Force
+          Start-Process $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          $uninstaller = ((Get-ItemProperty $key).QuietUninstallString -replace '^"([^"]+)".*$', '$1')
+          Start-Process $uninstaller -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          $deadline = (Get-Date).AddSeconds(90)
+          while (((Test-Path $family) -or (Test-Path $group)) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+          if (Test-Path $family) { $problems += 'empty BitSync folder left behind' }
+          if (Test-Path $group) { $problems += 'empty BitSync Start-menu group left behind' }
+
+          if ($problems.Count -gt 0) { $problems | ForEach-Object { Write-Host "::error::$_" }; exit 1 }
+          Write-Host "BitSync layout OK: $app, marker, shortcut in $group, uninstall key BitSync.Mashhad; siblings untouched."
+
       - name: Smoke-run the app (tour of every mode, with screenshots)
         shell: pwsh
         env:
