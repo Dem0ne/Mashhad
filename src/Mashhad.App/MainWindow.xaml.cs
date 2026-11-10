@@ -183,6 +183,7 @@ public sealed partial class MainWindow : Window
         if (_startupFiles.Count > 0) OpenPaths(_startupFiles);
         else _gallery.ShowEmpty(_engineError);
         Trace("loaded: files opened");
+        _ = Fonts.AppFonts.VerifyAsync(Root);
         if (_smokeTest) StartSmokeTest();
     }
 
@@ -472,6 +473,7 @@ public sealed partial class MainWindow : Window
         {
             if (show)
             {
+                _chrome.Visibility = Visibility.Visible; // it may have been collapsed while docked
                 SyncOverlay();
                 _overlay.Show(activate: true);
                 _chrome.PlayPause.Focus(FocusState.Programmatic);

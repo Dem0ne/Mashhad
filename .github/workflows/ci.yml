@@ -166,9 +166,9 @@ jobs:
           }
 
           # UI font: Thmanyah Sans when the key was compiled in, Segoe UI Variable otherwise.
-          $fontLine = Select-String -Path "$PWD\smoke\tour.log" -Pattern '^.*FONT: .*$' -ErrorAction SilentlyContinue | Select-Object -First 1
-          Write-Host "UI font: $($fontLine.Line)"
-          if ($env:EXPECT_BRAND_FONT -eq 'true' -and -not ($fontLine -and $fontLine.Line -match 'FONT: thmanyah')) {
+          $fontLines = @(Select-String -Path "$PWD\smoke\tour.log" -Pattern 'FONT: ' -ErrorAction SilentlyContinue)
+          $fontLines | ForEach-Object { Write-Host "UI font: $($_.Line)" }
+          if ($env:EXPECT_BRAND_FONT -eq 'true' -and -not ($fontLines | Where-Object { $_.Line -match 'FONT: thmanyah verified' })) {
             Write-Host "::error::the build has the font key but the app did not load Thmanyah Sans"; $failed = $true
           }
           $fontCache = Join-Path $env:LOCALAPPDATA 'Mashhad\Cache\r'

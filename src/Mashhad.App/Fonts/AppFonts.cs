@@ -135,34 +135,20 @@ public static class AppFonts
         {
             if (AddFontResourceExW(face.Path, FR_PRIVATE, IntPtr.Zero) > 0) Registered.Add(face.Path);
         }
-        var candidates = new List<(Func<string, string, string> Form, Func<OpenTypeInfo, string> Name, string Label, TextBlock Probe)>();
+        Candidates.Clear();
         foreach (var (form, formLabel) in forms)
             foreach (var (name, nameLabel) in names)
             {
                 var family = name(regular.Info);
-                if (family.Length == 0 || candidates.Any(c => c.Label.StartsWith(formLabel + "/") && c.Name(regular.Info) == family)) continue;
-                candidates.Add((form, name, $"{formLabel}/{nameLabel}", Probe(new FontFamily(form(regular.Path, family)))));
+                if (family.Length == 0 || Candidates.Any(c => c.Label.StartsWith(formLabel + "/") && c.Source == form(regular.Path, family))) continue;
+                Candidates.Add(($"{formLabel}/{nameLabel}", form(regular.Path, family)));
             }
-        var fallbackProbe = Probe(new FontFamily("Mashhad Missing Font"));
 
-        (Func<string, string, string> Form, Func<OpenTypeInfo, string> Name, string Label)? chosen = null;
-        var clock = System.Diagnostics.Stopwatch.StartNew();
-        double baseline = 0;
-        while (chosen is null && clock.ElapsedMilliseconds < 2500)
-        {
-            baseline = Width(fallbackProbe);
-            foreach (var c in candidates)
-            {
-                if (baseline > 0 && Math.Abs(Width(c.Probe) - baseline) > 0.5) { chosen = (c.Form, c.Name, c.Label); break; }
-            }
-            if (chosen is null) await Task.Delay(50);
-        }
-        if (chosen is null)
-        {
-            if (baseline > 0) throw new InvalidOperationException($"XAML did not render the decrypted font ({candidates.Count} ways tried, {Registered.Count} registered)");
-            chosen = (forms[0].Form, names[0].Name, "path/typographic (unverified)");
-        }
-        Log.Write($"FONT: rendered after {clock.ElapsedMilliseconds} ms via {chosen.Value.Label}");
+        // Unrendered families fall back to the system font glyph by glyph, so applying this before
+        // it is confirmed is harmless; VerifyAsync confirms it once the window is up.
+        (Func<string, string, string> Form, Func<OpenTypeInfo, string> Name, string Label)? chosen = (forms[0].Form, names[0].Name, "path/typographic");
+        _applied = forms[0].Form(regular.Path, names[0].Name(regular.Info));
+        await Task.CompletedTask;
 
         var (f, n, label) = chosen.Value;
         FontFamily Make(string weight)
@@ -176,19 +162,50 @@ public static class AppFonts
         Medium = Make("Medium");
         Bold = Make("Bold");
         Branded = true;
-        Log.Write($"FONT: thmanyah ({regular.Info.PreferredFamily}; {label}; weights {string.Join("/", Weights.Select(w => faces[w].Info.Weight))})");
+        Log.Write($"FONT: thmanyah applied ({regular.Info.PreferredFamily}; {label}; weights {string.Join("/", Weights.Select(w => faces[w].Info.Weight))}; {Registered.Count} privately registered)");
+    }
+
+    private static readonly List<(string Label, string Source)> Candidates = new();
+    private static string? _applied;
+
+    /// <summary>
+    /// Confirms in the live window that XAML renders the font (custom fonts load asynchronously)
+    /// and logs how each way of referring to it fares. Probes are invisible and removed afterwards.
+    /// </summary>
+    public static async Task VerifyAsync(Panel host)
+    {
+        if (!Branded) return;
+        var probes = new List<(string Label, string Source, TextBlock Probe)>
+        {
+            ("missing", "Mashhad Missing Font", Probe(new FontFamily("Mashhad Missing Font"))),
+            ("consolas", "Consolas", Probe(new FontFamily("Consolas"))),
+        };
+        foreach (var (label, source) in Candidates) probes.Add((label, source, Probe(new FontFamily(source))));
+        var panel = new StackPanel { Opacity = 0, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
+        foreach (var p in probes) panel.Children.Add(p.Probe);
+        host.Children.Add(panel);
+        try
+        {
+            string? works = null;
+            for (int i = 0; i < 30 && works is null; i++)
+            {
+                await Task.Delay(100);
+                double missing = probes[0].Probe.ActualWidth;
+                works = probes.Skip(2).Where(p => Math.Abs(p.Probe.ActualWidth - missing) > 0.5).Select(p => p.Label).FirstOrDefault();
+            }
+            string widths = string.Join(", ", probes.Select(p => $"{p.Label}={p.Probe.ActualWidth:0.#}"));
+            var applied = probes.FirstOrDefault(p => p.Source == _applied);
+            bool ok = applied.Probe is not null && Math.Abs(applied.Probe.ActualWidth - probes[0].Probe.ActualWidth) > 0.5;
+            Log.Write(ok
+                ? $"FONT: thmanyah verified in the window via {applied.Label} ({widths})"
+                : $"FONT: thmanyah NOT rendered via {applied.Label}; works: {works ?? "none"} ({widths})");
+        }
+        finally { host.Children.Remove(panel); }
     }
 
     private static TextBlock Probe(FontFamily family) =>
         new() { Text = "Mashhad مشهد Hamburgefonstiv 0123456789", FontSize = 48, FontFamily = family };
 
-    private static double Width(TextBlock probe)
-    {
-        // A fresh text value forces a new layout with whatever font has loaded by now.
-        probe.Text = probe.Text.EndsWith(' ') ? probe.Text.TrimEnd() : probe.Text + " ";
-        probe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        return probe.DesiredSize.Width;
-    }
 
     private static void UseFallback()
     {
