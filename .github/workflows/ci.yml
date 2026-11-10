@@ -168,12 +168,12 @@ jobs:
           # UI font: Thmanyah Sans when the key was compiled in, Segoe UI Variable otherwise.
           $fontLines = @(Select-String -Path "$PWD\smoke\tour.log" -Pattern 'FONT: ' -ErrorAction SilentlyContinue)
           $fontLines | ForEach-Object { Write-Host "UI font: $($_.Line)" }
-          if ($env:EXPECT_BRAND_FONT -eq 'true' -and -not ($fontLines | Where-Object { $_.Line -match 'FONT: thmanyah verified' })) {
-            Write-Host "::error::the build has the font key but the app did not load Thmanyah Sans"; $failed = $true
+          # Thmanyah Sans is embedded encrypted and must decrypt in the app; it is not applied yet
+          # (WinUI 3 cannot render it without writing it to the install folder or installing it).
+          if ($env:EXPECT_BRAND_FONT -eq 'true' -and -not ($fontLines | Where-Object { $_.Line -match 'FONT: thmanyah decrypted in memory' })) {
+            Write-Host "::error::the build has the font key but the app could not decrypt the embedded fonts"; $failed = $true
           }
-          $fontCache = Join-Path $env:LOCALAPPDATA 'Mashhad\Cache\r'
-          $left = @(Get-ChildItem $fontCache -Recurse -File -Force -ErrorAction SilentlyContinue)
-          Write-Host "Decrypted font files left after exit: $($left.Count) (removed on the next start)"
+          Write-Host "::warning::UI font is Segoe UI Variable: Thmanyah Sans is embedded and decrypts, but is not applied yet"
           $installFonts = @(Get-ChildItem "$PWD\publish\Mashhad" -Recurse -Force -Include '*.otf', '*.ttf', '*.enc' -File)
           if ($installFonts.Count -gt 0) { Write-Host "::error::font files in the install folder: $($installFonts.Name -join ', ')"; $failed = $true }
 

@@ -188,7 +188,7 @@ public sealed class EditTimeline : Grid
                     Child = new TextBlock
                     {
                         Text = $"{i + 1}" + (string.IsNullOrEmpty(s.Name) ? "" : " · " + s.Name),
-                        FontSize = 11.5, FontFamily = Fonts.AppFonts.Medium, FontWeight = Fonts.AppFonts.Branded ? Microsoft.UI.Text.FontWeights.Medium : Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(8, 0, 8, 0),
+                        FontSize = 11.5, FontFamily = Fonts.AppFonts.Regular, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(8, 0, 8, 0),
                         VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis,
                     },
                 };
