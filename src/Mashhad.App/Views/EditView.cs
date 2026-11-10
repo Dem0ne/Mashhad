@@ -84,6 +84,12 @@ public sealed class EditView : Grid
         SetColumn(right, 2);
         transport.Children.Add(right);
         _transport = Card(transport);
+        // Narrow previews: the frame transport always fits; the duration, then the extras, give way.
+        transport.SizeChanged += (_, e) =>
+        {
+            DurationText.Visibility = e.NewSize.Width >= 640 ? Visibility.Visible : Visibility.Collapsed;
+            right.Visibility = e.NewSize.Width >= 560 ? Visibility.Visible : Visibility.Collapsed;
+        };
         _transport.FlowDirection = FlowDirection.LeftToRight;
 
         // ---- inspector ----
