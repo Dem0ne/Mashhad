@@ -29,6 +29,12 @@ public sealed partial class MainWindow
 
     private void InitializePlayer()
     {
+        // Diagnostics switch: run the UI without the playback engine (used by the CI smoke test).
+        if (Environment.GetEnvironmentVariable("MASHHAD_DISABLE_ENGINE") == "1")
+        {
+            Log.Write("Playback engine disabled by MASHHAD_DISABLE_ENGINE");
+            return;
+        }
         if (!MpvPlayer.IsAvailable(out var error))
         {
             Log.Write("libmpv not available: " + error);
@@ -39,7 +45,10 @@ public sealed partial class MainWindow
 
         try
         {
+            Trace("player: creating video host");
+            if (_smokeTest) VideoHost.Trace = Trace;
             _host = new VideoHost(_hwnd);
+            Trace("player: video host created");
             _host.MouseMove += Host_MouseMove;
             _host.MouseDown += Host_MouseDown;
             _host.MouseUp += Host_MouseUp;
@@ -47,12 +56,15 @@ public sealed partial class MainWindow
             _host.Wheel += Host_Wheel;
             _host.FilesDropped += files => OpenPaths(files);
             SyncVideoHostBounds();
+            Trace("player: host positioned");
 
             string shots = string.IsNullOrWhiteSpace(Settings.ScreenshotDirectory)
                 ? AppPaths.DefaultScreenshotDirectory
                 : Settings.ScreenshotDirectory;
             var options = MpvOptions.Build(Settings, _host.Handle.ToInt64(), shots);
+            Trace("player: creating mpv");
             _mpv = new MpvPlayer(options, MpvOptions.BuildOptional(embedded: true), _smokeTest ? "v" : "warn");
+            Trace("player: mpv initialised");
 
             _mpv.PropertyChanged += Mpv_PropertyChanged;
             _mpv.FileLoaded += () => RunOnUi(OnFileLoaded);
@@ -76,6 +88,7 @@ public sealed partial class MainWindow
             _muted = Settings.Muted;
             UpdateVolumeUi();
             _host.DisableChildInput();
+            Trace("player: child input disabled");
             Log.Write($"libmpv client API {MpvPlayer.ApiVersion} initialised, hwdec={Settings.HardwareDecoding}");
         }
         catch (Exception e)
@@ -88,6 +101,7 @@ public sealed partial class MainWindow
         }
         UpdateVideoHostVisibility();
         UpdateAbout();
+        Trace("player: done");
     }
 
     /// <summary>mpv event thread: coalesce the high-frequency position updates, forward the rest.</summary>

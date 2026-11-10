@@ -65,6 +65,7 @@ jobs:
 
           $failed = $false
           $cases = @(
+            @{ Name = 'ui-only'; Args = @(); NoEngine = $true },
             @{ Name = 'empty'; Args = @() },
             @{ Name = 'video'; Args = @("$PWD\smoke\فيديو sample.mp4") },
             @{ Name = 'image'; Args = @("$PWD\smoke\photo.png") }
@@ -72,15 +73,23 @@ jobs:
           foreach ($case in $cases) {
             $log = "$PWD\smoke\$($case.Name).log"
             $argList = @('--smoke-test', '--smoke-log', "`"$log`"") + ($case.Args | ForEach-Object { "`"$_`"" })
+            if ($case.NoEngine) { $env:MASHHAD_DISABLE_ENGINE = '1' } else { Remove-Item Env:MASHHAD_DISABLE_ENGINE -ErrorAction SilentlyContinue }
+            $started = Get-Date
             $p = Start-Process -FilePath $exe -ArgumentList $argList -PassThru
             if (-not $p.WaitForExit(120000)) { $p.Kill(); Write-Host "::error::smoke '$($case.Name)' hung"; $failed = $true }
-            Write-Host "===== smoke: $($case.Name) (exit code $($p.ExitCode)) ====="
+            Write-Host ("===== smoke: {0} (exit code {1} / 0x{2:X8}) =====" -f $case.Name, $p.ExitCode, $p.ExitCode)
             if (Test-Path $log) { Get-Content $log | Where-Object { $_ -notmatch 'mpv\[(v|debug|trace)\]' } } else { Write-Host "(no log written)" }
             if ($p.ExitCode -ne 0 -or -not (Test-Path $log) -or -not (Select-String -Path $log -Pattern 'SMOKE RESULT: PASS' -Quiet)) {
               Write-Host "::error::smoke '$($case.Name)' failed"
               $failed = $true
+              # Crash details: faulting module/offset, .NET stack, WER bucket.
+              Start-Sleep -Seconds 3
+              Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $started } -ErrorAction SilentlyContinue |
+                Where-Object { $_.ProviderName -in 'Application Error', '.NET Runtime', 'Windows Error Reporting' } |
+                ForEach-Object { Write-Host "--- [$($_.ProviderName)] $($_.TimeCreated)"; Write-Host $_.Message }
             }
           }
+          Remove-Item Env:MASHHAD_DISABLE_ENGINE -ErrorAction SilentlyContinue
           if ($failed) { exit 1 }
 
       - name: Upload installer and portable zip

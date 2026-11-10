@@ -124,8 +124,13 @@ internal sealed class VideoHost : IDisposable
         return DefWindowProcW(hwnd, msg, wParam, lParam);
     }
 
+    /// <summary>Set by the smoke test to log the first occurrence of each window message.</summary>
+    public static Action<string>? Trace;
+    private readonly HashSet<uint> _seen = new();
+
     private bool HandleMessage(uint msg, IntPtr wParam, IntPtr lParam, out IntPtr result)
     {
+        if (Trace is not null && _seen.Add(msg)) Trace($"host: first message 0x{msg:X4}");
         result = IntPtr.Zero;
         int x = LoWord(lParam), y = HiWord(lParam);
         switch (msg)

@@ -47,9 +47,11 @@ public sealed partial class MainWindow : Window
     {
         _startupFiles = startupFiles;
         _smokeTest = smokeTest;
+        Trace("ctor: start");
         Loc.SetLanguage(Settings.Language);
 
         InitializeComponent();
+        Trace("ctor: XAML loaded");
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
 
         Title = "Mashhad";
@@ -92,13 +94,23 @@ public sealed partial class MainWindow : Window
         ApplyLanguage();
         LoadSettingsIntoUi();
         UpdateModeUi();
+        Trace("ctor: done");
+    }
+
+    /// <summary>Start-up breadcrumbs (smoke test only): the log is written synchronously, so it survives a crash.</summary>
+    private void Trace(string step)
+    {
+        if (_smokeTest) Log.Write("TRACE " + step);
     }
 
     private void Root_Loaded(object sender, RoutedEventArgs e)
     {
+        Trace("loaded: start");
         InitializePlayer();
+        Trace("loaded: player initialised");
         PlayButton.Focus(FocusState.Programmatic);
         if (_startupFiles.Count > 0) OpenPaths(_startupFiles);
+        Trace("loaded: files opened");
         if (_smokeTest) StartSmokeTest();
     }
 
