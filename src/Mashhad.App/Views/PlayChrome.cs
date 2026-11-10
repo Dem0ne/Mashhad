@@ -40,6 +40,7 @@ public sealed class PlayChrome : Grid
     public PlayChrome()
     {
         Background = new SolidColorBrush(Colors.Transparent); // hit-testable: this is the video surface
+        RequestedTheme = ElementTheme.Dark; // in the overlay window it does not inherit the main window's theme
         _scrimTop = Scrim(top: true);
         _scrimBottom = Scrim(top: false);
         Children.Add(_scrimTop);
