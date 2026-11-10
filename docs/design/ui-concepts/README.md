@@ -1,22 +1,24 @@
 # Mashhad UI concepts
 
-Three deliberately different directions for the WinUI 3 interface, for choosing before the app is
-restyled. **The app has not been changed toward any of them.**
+Design directions for the WinUI 3 interface. **The app has not been restyled toward any of them yet.**
 
-| Concept | One line |
+**Current proposal: [Hybrid](hybrid/README.md)**, which combines Cinema's playback, Library's folder
+browsing (restyled in Cinema's visual language) and Studio's editor into one consistent app.
+The Library concept was folded into Hybrid and removed; it remains in the git history.
+
+| Direction | One line |
 | --- | --- |
-| [A · Cinema](cinema/README.md) | Minimal and immersive: the media fills the window, controls float on acrylic and disappear. |
-| [B · Library](library/README.md) | Gallery-first, like a modern Photos app: folder navigation, date-grouped grid, viewer with filmstrip and details. |
-| [C · Studio](studio/README.md) | Editor-first, LosslessCut-style: one dense panel workspace with an always-visible multi-track timeline. |
+| [**Hybrid** (proposed)](hybrid/README.md) | Cinema playback · immersive folder browsing · Studio editing, with one floating chrome and animated mode changes. |
+| [A · Cinema](cinema/README.md) | Reference: minimal and immersive; the media fills the window, controls float on acrylic and disappear. |
+| [C · Studio](studio/README.md) | Reference: editor-first, LosslessCut-style; one dense panel workspace with a multi-track timeline. |
 
-Each concept has the same four screens, so they can be compared side by side:
-
-| | Cinema | Library | Studio |
+| | Hybrid | Cinema | Studio |
 | --- | --- | --- | --- |
-| a · video playing | [png](cinema/a-video-player.png) | [png](library/a-video-player.png) | [png](studio/a-video-player.png) |
-| b · folder gallery | [png](cinema/b-folder-gallery.png) | [png](library/b-folder-gallery.png) | [png](studio/b-folder-gallery.png) |
-| c · lossless trim | [png](cinema/c-lossless-trim.png) | [png](library/c-lossless-trim.png) | [png](studio/c-lossless-trim.png) |
-| d · Arabic RTL | [player](cinema/d-video-player-ar-rtl.png) | [gallery](library/d-folder-gallery-ar-rtl.png) | [trim](studio/d-lossless-trim-ar-rtl.png) |
+| a · video playing | [png](hybrid/a-video-player.png) | [png](cinema/a-video-player.png) | [png](studio/a-video-player.png) |
+| b · folder gallery | [png](hybrid/b-folder-gallery.png) | [png](cinema/b-folder-gallery.png) | [png](studio/b-folder-gallery.png) |
+| c · lossless trim | [png](hybrid/c-lossless-trim.png) | [png](cinema/c-lossless-trim.png) | [png](studio/c-lossless-trim.png) |
+| d · Arabic RTL | [gallery](hybrid/d-folder-gallery-ar-rtl.png) | [player](cinema/d-video-player-ar-rtl.png) | [trim](studio/d-lossless-trim-ar-rtl.png) |
+| e · transitions | [png](hybrid/e-mode-transitions.png) | | |
 
 ## Shared rules (all three)
 
@@ -38,5 +40,5 @@ Each concept has the same four screens, so they can be compared side by side:
 
 ```bash
 node docs/design/ui-concepts/_generator/render.cjs            # all
-node docs/design/ui-concepts/_generator/render.cjs studio     # one concept
+node docs/design/ui-concepts/_generator/render.cjs hybrid     # one concept
 ```

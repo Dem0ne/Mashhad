@@ -5,7 +5,7 @@ const fs = require('fs');
 const { chromium } = require('playwright');
 
 const OUT = path.resolve(__dirname, '..');
-const ALL = ['cinema', 'library', 'studio'];
+const ALL = ['cinema', 'studio', 'hybrid'];
 
 (async () => {
   const wanted = process.argv.slice(2).length ? process.argv.slice(2) : ALL;

@@ -35,7 +35,7 @@ body{background:#07080a}
 .pill{height:30px;padding:0 11px;border-radius:15px;background:rgba(255,255,255,.1);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
 .vol{width:86px;height:4px;border-radius:2px;background:rgba(255,255,255,.2);position:relative;margin:0 6px}
 .vol::before{content:"";position:absolute;inset:0 30% 0 0;border-radius:2px;background:#fff}
-.sub{position:absolute;left:0;right:0;bottom:214px;text-align:center}
+.sub{position:absolute;left:0;right:0;bottom:252px;text-align:center}
 .sub span{font-size:30px;font-weight:600;padding:4px 14px;border-radius:6px;background:rgba(0,0,0,.42);text-shadow:0 2px 6px rgba(0,0,0,.6)}
 .edge{position:absolute;top:50%;margin-top:-28px;width:44px;height:56px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff}
 .chip{position:absolute;display:flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:17px;font-size:13px;font-weight:500}
@@ -218,3 +218,4 @@ module.exports = {
     ['d-video-player-ar-rtl.png', () => player({ rtl: true })],
   ],
 };
+module.exports.parts = { CSS, FRAME, seekBar, controls };

@@ -349,3 +349,4 @@ module.exports = {
     ['d-lossless-trim-ar-rtl.png', () => cut({ rtl: true })],
   ],
 };
+module.exports.parts = { CSS, bin, timeline, transport, inspectorCut };
