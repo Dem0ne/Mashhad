@@ -76,6 +76,7 @@ jobs:
           $cases = @(
             @{ Name = 'ui-only'; Args = @(); NoEngine = $true },
             @{ Name = 'empty'; Args = @() },
+            @{ Name = 'empty-vo-null'; Args = @(); Mpv = 'vo=null' },
             @{ Name = 'video'; Args = @("$PWD\smoke\فيديو sample.mp4") },
             @{ Name = 'image'; Args = @("$PWD\smoke\photo.png") }
           )
@@ -83,6 +84,7 @@ jobs:
             $log = "$PWD\smoke\$($case.Name).log"
             $argList = @('--smoke-test', '--smoke-log', "`"$log`"") + ($case.Args | ForEach-Object { "`"$_`"" })
             if ($case.NoEngine) { $env:MASHHAD_DISABLE_ENGINE = '1' } else { Remove-Item Env:MASHHAD_DISABLE_ENGINE -ErrorAction SilentlyContinue }
+            if ($case.Mpv) { $env:MASHHAD_MPV_OPTIONS = $case.Mpv } else { Remove-Item Env:MASHHAD_MPV_OPTIONS -ErrorAction SilentlyContinue }
             $started = Get-Date
             $p = Start-Process -FilePath $exe -ArgumentList $argList -PassThru
             if (-not $p.WaitForExit(120000)) { $p.Kill(); Write-Host "::error::smoke '$($case.Name)' hung"; $failed = $true }
@@ -105,11 +107,12 @@ jobs:
                 Write-Host "--- crash analysis ($($dmp.Name))"
                 Select-String -Path $report -Pattern 'EXCEPTION_CODE_STR|ERROR_CODE|STOWED_EXCEPTION|EXCEPTION_MESSAGE|FAILURE_BUCKET_ID|SYMBOL_NAME|FAULTING_THREAD' |
                   ForEach-Object { Write-Host $_.Line }
-                Select-String -Path $report -Pattern '^STACK_TEXT' -Context 0,30 | ForEach-Object { $_.Context.PostContext | ForEach-Object { Write-Host $_ } }
+                Select-String -Path $report -Pattern '^STACK_TEXT' -Context 0,90 | ForEach-Object { $_.Context.PostContext | ForEach-Object { Write-Host $_ } }
               } elseif (-not $cdb) { Write-Host "(cdb not found; dump kept in smoke-logs)" }
             }
           }
           Remove-Item Env:MASHHAD_DISABLE_ENGINE -ErrorAction SilentlyContinue
+          Remove-Item Env:MASHHAD_MPV_OPTIONS -ErrorAction SilentlyContinue
           if ($failed) { exit 1 }
 
       - name: Upload installer and portable zip

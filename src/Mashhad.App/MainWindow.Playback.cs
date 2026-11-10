@@ -62,6 +62,7 @@ public sealed partial class MainWindow
                 ? AppPaths.DefaultScreenshotDirectory
                 : Settings.ScreenshotDirectory;
             var options = MpvOptions.Build(Settings, _host.Handle.ToInt64(), shots);
+            options.AddRange(MpvOptions.FromEnvironment(Environment.GetEnvironmentVariable("MASHHAD_MPV_OPTIONS")));
             Trace("player: creating mpv");
             _mpv = new MpvPlayer(options, MpvOptions.BuildOptional(embedded: true), _smokeTest ? "v" : "warn");
             Trace("player: mpv initialised");

@@ -31,6 +31,9 @@ public static class MpvOptions
         // Images are first-class: show them until the user moves on.
         Add("image-display-duration", "inf");
 
+        // No (working) audio device, e.g. a server or a VM: play silently instead of failing.
+        Add("audio-fallback-to-null", "yes");
+
         Add("volume", settings.Volume.ToString("0.#", CultureInfo.InvariantCulture));
         Add("volume-max", "150");
         Add("mute", settings.Muted ? "yes" : "no");
@@ -48,6 +51,22 @@ public static class MpvOptions
             Add("force-window", "yes");
         }
         return o;
+    }
+
+    /// <summary>
+    /// Extra options from the MASHHAD_MPV_OPTIONS environment variable ("name=value;name=value"),
+    /// for diagnostics. Later entries win over the defaults.
+    /// </summary>
+    public static List<KeyValuePair<string, string>> FromEnvironment(string? value)
+    {
+        var list = new List<KeyValuePair<string, string>>();
+        if (string.IsNullOrWhiteSpace(value)) return list;
+        foreach (var part in value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            int eq = part.IndexOf('=');
+            if (eq > 0) list.Add(new(part[..eq].Trim(), part[(eq + 1)..].Trim()));
+        }
+        return list;
     }
 
     /// <summary>Options that only exist on some platforms/versions; failures to set them are ignored.</summary>

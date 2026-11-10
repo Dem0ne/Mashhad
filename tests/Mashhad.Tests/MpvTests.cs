@@ -16,7 +16,16 @@ public class MpvOptionsTests
         Assert.Equal("inf", o["image-display-duration"]);
         Assert.Equal("yes", o["keep-open"]);
         Assert.Equal("/shots", o["screenshot-directory"]);
+        Assert.Equal("yes", o["audio-fallback-to-null"]); // no audio device must not break playback
         Assert.DoesNotContain("wid", MpvOptions.Build(new AppSettings(), null, "/s").Select(k => k.Key));
+    }
+
+    [Fact]
+    public void Diagnostic_options_from_environment()
+    {
+        var o = MpvOptions.FromEnvironment(" vo=null ; hwdec = no;;bad;=x ");
+        Assert.Equal(new[] { new KeyValuePair<string, string>("vo", "null"), new("hwdec", "no") }, o);
+        Assert.Empty(MpvOptions.FromEnvironment(null));
     }
 
     [Fact]
