@@ -302,6 +302,8 @@ public sealed partial class MainWindow
                     Log.Write($"SMOKE: playing kind={_kind} duration={_duration:0.###} position={_position:0.###} vo={_mpv.GetString("current-vo")} hwdec={_mpv.GetString("hwdec-current")} overlay={_overlay is not null}");
                     _mpv.Set("pause", true);
                     KickChrome();
+                    await Task.Delay(300);
+                    Log.Write($"SMOKE: chrome {_chrome.ActualWidth:0}x{_chrome.ActualHeight:0}, loaded={_chrome.IsLoaded}, visible={_overlay?.Visible}, root={(_chrome.XamlRoot is { } xr ? $"{xr.Size.Width:0}x{xr.Size.Height:0}" : "none")}");
                     await Snap("play");
 
                     Execute(Core.Input.PlayerCommand.ToggleEditMode);

@@ -43,6 +43,7 @@ internal sealed class PlayOverlay
             DwmSetWindowAttribute(hwnd, 33, ref corner, sizeof(int));
             int noBorder = unchecked((int)0xFFFFFFFE); // DWMWA_COLOR_NONE
             DwmSetWindowAttribute(hwnd, 34, ref noBorder, sizeof(int));
+            MakeTransparent(hwnd);
             error = null;
             return new PlayOverlay(w, hwnd);
         }
@@ -83,6 +84,54 @@ internal sealed class PlayOverlay
     {
         try { Window.Close(); } catch (Exception) { }
     }
+
+    // Without these, DWM composes the window's redirection surface as opaque and GDI erases it
+    // white: per-pixel alpha needs blur-behind (with an empty, off-screen blur region so nothing
+    // is actually blurred) and a background erase that paints alpha 0 (black).
+    private static readonly SubclassProc s_subclass = Subclass;
+
+    private static void MakeTransparent(IntPtr hwnd)
+    {
+        var region = CreateRectRgn(-2, -2, -1, -1);
+        var blur = new DWM_BLURBEHIND { dwFlags = 0x1 | 0x2 /* ENABLE | BLURREGION */, fEnable = true, hRgnBlur = region };
+        DwmEnableBlurBehindWindow(hwnd, ref blur);
+        DeleteObject(region);
+        SetWindowSubclass(hwnd, s_subclass, (UIntPtr)0x4D534844, UIntPtr.Zero);
+    }
+
+    private static IntPtr Subclass(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr data)
+    {
+        const uint WM_ERASEBKGND = 0x0014;
+        if (msg == WM_ERASEBKGND && GetClientRect(hwnd, out var rc))
+        {
+            FillRect(wParam, ref rc, GetStockObject(4 /* BLACK_BRUSH */));
+            return (IntPtr)1;
+        }
+        return DefSubclassProc(hwnd, msg, wParam, lParam);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DWM_BLURBEHIND
+    {
+        public uint dwFlags;
+        [MarshalAs(UnmanagedType.Bool)] public bool fEnable;
+        public IntPtr hRgnBlur;
+        [MarshalAs(UnmanagedType.Bool)] public bool fTransitionOnMaximized;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int Left, Top, Right, Bottom; }
+
+    private delegate IntPtr SubclassProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr data);
+
+    [DllImport("dwmapi.dll")] private static extern int DwmEnableBlurBehindWindow(IntPtr hwnd, ref DWM_BLURBEHIND blur);
+    [DllImport("gdi32.dll")] private static extern IntPtr CreateRectRgn(int l, int t, int r, int b);
+    [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr obj);
+    [DllImport("gdi32.dll")] private static extern IntPtr GetStockObject(int index);
+    [DllImport("user32.dll")] private static extern int FillRect(IntPtr hdc, ref RECT rc, IntPtr brush);
+    [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr hwnd, out RECT rc);
+    [DllImport("comctl32.dll")] private static extern bool SetWindowSubclass(IntPtr hwnd, SubclassProc proc, UIntPtr id, UIntPtr data);
+    [DllImport("comctl32.dll")] private static extern IntPtr DefSubclassProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     private const int GWLP_HWNDPARENT = -8;
     [DllImport("user32.dll")] private static extern IntPtr SetWindowLongPtrW(IntPtr hwnd, int index, IntPtr value);

@@ -36,12 +36,12 @@ public partial class App : Application
 
     private bool IsSmokeTest => _args.Contains("--smoke-test");
 
-    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         try
         {
             _dispatcher = DispatcherQueue.GetForCurrentThread();
-            Fonts.AppFonts.Initialize(); // before any window, so every control picks up the UI font
+            await Fonts.AppFonts.InitializeAsync(); // before any window, so every control picks up the UI font
             var files = CommandLine.MediaArguments(_args.Where((a, i) => i == 0 || _args[i - 1] != "--smoke-log"));
             _window = new MainWindow(files, IsSmokeTest);
             _window.Activate();

@@ -131,15 +131,28 @@ public sealed class GalleryView : Grid
         _sort.Flyout = sortMenu;
         var slideshow = Ui.PillButton(Ui.G.Slideshow, "Bar.Slideshow", (_, _) => SlideshowRequested?.Invoke(), accent: true, height: 36);
 
-        var head = new Grid { Margin = new Thickness(0, 6, 0, 0) };
-        head.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var titleBlock = Ui.Column(0, _crumbs, _title, _meta);
+        // Title on its own line (it must never be squeezed by the tools), tools below it.
+        var head = new Grid { Margin = new Thickness(0, 6, 0, 0), RowSpacing = 12 };
+        head.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        head.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var titleLine = Ui.Row(14, _title, _meta);
+        _meta.VerticalAlignment = VerticalAlignment.Bottom;
+        _meta.Margin = new Thickness(0, 0, 0, 7);
+        var titleBlock = Ui.Column(0, _crumbs, titleLine);
         _title.Margin = new Thickness(0, -2, 0, 0);
         head.Children.Add(titleBlock);
-        var tools = Ui.Row(10, seg, _search, _sort, slideshow);
-        tools.VerticalAlignment = VerticalAlignment.Bottom;
-        SetColumn(tools, 1);
+        var tools = new Grid { ColumnSpacing = 10 };
+        tools.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        tools.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        tools.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        tools.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        tools.Children.Add(seg);
+        _search.HorizontalAlignment = HorizontalAlignment.Right;
+        _search.MaxWidth = 340;
+        SetColumn(_search, 1); tools.Children.Add(_search);
+        SetColumn(_sort, 2); tools.Children.Add(_sort);
+        SetColumn(slideshow, 3); tools.Children.Add(slideshow);
+        SetRow(tools, 1);
         head.Children.Add(tools);
 
         // ---- grid ----
@@ -224,6 +237,7 @@ public sealed class GalleryView : Grid
         _scroller.Visibility = entries.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         Relayout(keepFocus: true);
         UpdateSelectionBar();
+        if (entries.Count > 0 && Visibility == Visibility.Visible) DispatcherQueue.TryEnqueue(FocusGrid);
     }
 
     internal void ShowEmpty(string? error)
@@ -455,7 +469,7 @@ public sealed class GalleryView : Grid
         {
             VerticalAlignment = VerticalAlignment.Bottom, Padding = new Thickness(12, 28, 12, 10), Visibility = Visibility.Collapsed,
             Background = Gradient(),
-            Child = Ui.Column(0, Ui.Text(e.Item.FileName, 13.5, true), Ui.Text($"{GalleryView.FormatSize(e.Size)} · {e.Modified.ToString("d", _culture())}", 12, false, 0.75)),
+            Child = Ui.Column(0, Ui.Text(e.Item.FileName, 13.5, true), Ui.Text($"\u2068{GalleryView.FormatSize(e.Size)}\u2069 · \u2068{e.Modified.ToString("d", _culture())}\u2069", 12, false, 0.75)),
         };
         root.Children.Add(caption);
         var check = new Border { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), Background = Ui.Brand(), Child = Ui.Icon(Ui.G.Check, 11), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8), Visibility = Visibility.Collapsed };
@@ -559,6 +573,14 @@ public sealed class GalleryView : Grid
         }
         _focus = index;
         RefreshStates();
+    }
+
+    /// <summary>Puts keyboard focus on the grid (not the search box), so arrows move between tiles.</summary>
+    internal void FocusGrid()
+    {
+        _scroller.IsTabStop = true;
+        _scroller.UseSystemFocusVisuals = false;
+        _scroller.Focus(FocusState.Programmatic);
     }
 
     internal void MoveFocus(int dx, int dy)

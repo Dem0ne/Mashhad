@@ -149,6 +149,22 @@ jobs:
           }
           Remove-Item Env:MASHHAD_DISABLE_ENGINE, Env:MASHHAD_NO_OVERLAY -ErrorAction SilentlyContinue
 
+          # The Play chrome is a transparent window over the video: a mostly white screen means it is opaque.
+          foreach ($png in Get-ChildItem smoke -Filter 'snap-tour-*.png') {
+            $img = New-Object System.Drawing.Bitmap $png.FullName
+            $white = 0; $total = 0
+            for ($y = 40; $y -lt $img.Height - 80; $y += 23) {
+              for ($x = 0; $x -lt $img.Width; $x += 23) {
+                $c = $img.GetPixel($x, $y); $total++
+                if ($c.R -ge 245 -and $c.G -ge 245 -and $c.B -ge 245) { $white++ }
+              }
+            }
+            $img.Dispose()
+            $share = [Math]::Round(100.0 * $white / [Math]::Max(1, $total))
+            Write-Host "$($png.BaseName): $share% white"
+            if ($share -ge 60) { Write-Host "::error::$($png.BaseName) is mostly white (opaque overlay or blank window)"; $failed = $true }
+          }
+
           # UI font: Thmanyah Sans when the key was compiled in, Segoe UI Variable otherwise.
           $fontLine = Select-String -Path "$PWD\smoke\tour.log" -Pattern '^.*FONT: .*$' -ErrorAction SilentlyContinue | Select-Object -First 1
           Write-Host "UI font: $($fontLine.Line)"

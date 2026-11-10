@@ -51,7 +51,7 @@ public static class AppFonts
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Mashhad", "Cache", "r");
 
     /// <summary>Call once on the UI thread before any window is created.</summary>
-    public static void Initialize()
+    public static async Task InitializeAsync()
     {
         RemoveStaleFiles();
         byte[]? key = null;
@@ -63,7 +63,7 @@ public static class AppFonts
         }
         else
         {
-            try { LoadBranded(key); }
+            try { await LoadBrandedAsync(key); }
             catch (Exception e)
             {
                 Log.Write($"FONT: fallback (Thmanyah Sans unavailable: {e.GetType().Name}: {e.Message}) -> Segoe UI Variable");
@@ -87,7 +87,7 @@ public static class AppFonts
     /// <summary>Timecodes and other aligned numbers.</summary>
     public static TextBlock Monospace(TextBlock text) { text.FontFamily = Mono; return text; }
 
-    private static void LoadBranded(byte[] key)
+    private static async Task LoadBrandedAsync(byte[] key)
     {
         var assembly = typeof(AppFonts).Assembly;
         _dir = Path.Combine(CacheRoot, RandomName());
@@ -115,36 +115,54 @@ public static class AppFonts
         }
 
         // XAML accepts a font file path with "#Family"; which family name it matches depends on how
-        // DirectWrite groups the face, so try the candidates and keep the first one that renders.
+        // DirectWrite groups the face. As a second route the files are also registered privately
+        // for this process. Custom fonts load asynchronously, so measure the candidates until one
+        // renders differently from the fallback.
         var regular = faces["Regular"];
-        double baseline = Width(new FontFamily("Mashhad Missing Font"));
-        (Func<string, string, string> Form, Func<OpenTypeInfo, string> Name, string Label)? chosen = null;
-        var forms = new (Func<string, string, string>, string)[]
+        var forms = new (Func<string, string, string> Form, string Label)[]
         {
             ((path, name) => $"{path}#{name}", "path"),
             ((path, name) => $"{new Uri(path).AbsoluteUri}#{name}", "uri"),
+            ((path, name) => name, "private"),
         };
-        var names = new (Func<OpenTypeInfo, string>, string)[]
+        var names = new (Func<OpenTypeInfo, string> Name, string Label)[]
         {
             (i => i.PreferredFamily, "typographic"),
             (i => i.Family, "family"),
             (i => i.FullName, "full"),
         };
-        foreach (var (form, formLabel) in forms)
+        foreach (var face in faces.Values)
         {
+            if (AddFontResourceExW(face.Path, FR_PRIVATE, IntPtr.Zero) > 0) Registered.Add(face.Path);
+        }
+        var candidates = new List<(Func<string, string, string> Form, Func<OpenTypeInfo, string> Name, string Label, TextBlock Probe)>();
+        foreach (var (form, formLabel) in forms)
             foreach (var (name, nameLabel) in names)
             {
-                if (name(regular.Info).Length == 0) continue;
-                double width = Width(new FontFamily(form(regular.Path, name(regular.Info))));
-                if (baseline > 0 && Math.Abs(width - baseline) > 0.5) { chosen = (form, name, $"{formLabel}/{nameLabel}"); break; }
+                var family = name(regular.Info);
+                if (family.Length == 0 || candidates.Any(c => c.Label.StartsWith(formLabel + "/") && c.Name(regular.Info) == family)) continue;
+                candidates.Add((form, name, $"{formLabel}/{nameLabel}", Probe(new FontFamily(form(regular.Path, family)))));
             }
-            if (chosen is not null) break;
+        var fallbackProbe = Probe(new FontFamily("Mashhad Missing Font"));
+
+        (Func<string, string, string> Form, Func<OpenTypeInfo, string> Name, string Label)? chosen = null;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        double baseline = 0;
+        while (chosen is null && clock.ElapsedMilliseconds < 2500)
+        {
+            baseline = Width(fallbackProbe);
+            foreach (var c in candidates)
+            {
+                if (baseline > 0 && Math.Abs(Width(c.Probe) - baseline) > 0.5) { chosen = (c.Form, c.Name, c.Label); break; }
+            }
+            if (chosen is null) await Task.Delay(50);
         }
         if (chosen is null)
         {
-            if (baseline > 0) throw new InvalidOperationException("XAML did not render the decrypted font");
-            chosen = (forms[0].Item1, names[0].Item1, "path/typographic (unverified)");
+            if (baseline > 0) throw new InvalidOperationException($"XAML did not render the decrypted font ({candidates.Count} ways tried, {Registered.Count} registered)");
+            chosen = (forms[0].Form, names[0].Name, "path/typographic (unverified)");
         }
+        Log.Write($"FONT: rendered after {clock.ElapsedMilliseconds} ms via {chosen.Value.Label}");
 
         var (f, n, label) = chosen.Value;
         FontFamily Make(string weight)
@@ -161,9 +179,13 @@ public static class AppFonts
         Log.Write($"FONT: thmanyah ({regular.Info.PreferredFamily}; {label}; weights {string.Join("/", Weights.Select(w => faces[w].Info.Weight))})");
     }
 
-    private static double Width(FontFamily family)
+    private static TextBlock Probe(FontFamily family) =>
+        new() { Text = "Mashhad مشهد Hamburgefonstiv 0123456789", FontSize = 48, FontFamily = family };
+
+    private static double Width(TextBlock probe)
     {
-        var probe = new TextBlock { Text = "Mashhad مشهد Hamburgefonstiv 0123456789", FontSize = 48, FontFamily = family };
+        // A fresh text value forces a new layout with whatever font has loaded by now.
+        probe.Text = probe.Text.EndsWith(' ') ? probe.Text.TrimEnd() : probe.Text + " ";
         probe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         return probe.DesiredSize.Width;
     }
@@ -190,6 +212,8 @@ public static class AppFonts
     /// <summary>Deletes this run's decrypted font files (best effort; XAML may still hold them).</summary>
     public static void Cleanup()
     {
+        foreach (var path in Registered) RemoveFontResourceExW(path, FR_PRIVATE, IntPtr.Zero);
+        Registered.Clear();
         if (_dir is null) return;
         try { Directory.Delete(_dir, recursive: true); _dir = null; }
         catch { /* still mapped by the text stack; removed on the next start */ }
@@ -207,6 +231,13 @@ public static class AppFonts
         }
         catch { }
     }
+
+    private static readonly List<string> Registered = new();
+    private const uint FR_PRIVATE = 0x10;
+    [System.Runtime.InteropServices.DllImport("gdi32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern int AddFontResourceExW(string path, uint flags, IntPtr reserved);
+    [System.Runtime.InteropServices.DllImport("gdi32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern bool RemoveFontResourceExW(string path, uint flags, IntPtr reserved);
 
     private static string RandomName() => Convert.ToHexString(RandomNumberGenerator.GetBytes(10)).ToLowerInvariant();
 }

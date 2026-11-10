@@ -63,7 +63,15 @@ public sealed class EditView : Grid
         transport.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         transport.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         transport.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        transport.Children.Add(Ui.Row(10, TimeText, DurationText));
+        TimeText.TextTrimming = TextTrimming.None; // the clock is never cut; the duration gives way first
+        TimeText.FontSize = 18;
+        var clock = new Grid { ColumnSpacing = 10 };
+        clock.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        clock.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        clock.Children.Add(TimeText);
+        SetColumn(DurationText, 1);
+        clock.Children.Add(DurationText);
+        transport.Children.Add(clock);
         var center = Ui.Row(2, Btn("◆◂", "Edit.PrevKeyframeTip", PlayerCommand.PreviousKeyframe), Btn(Ui.G.ChevL, "Bar.FrameBack", PlayerCommand.FrameBackStep, icon: true),
             play, Btn(Ui.G.ChevR, "Bar.FrameForward", PlayerCommand.FrameStep, icon: true), Btn("▸◆", "Edit.NextKeyframeTip", PlayerCommand.NextKeyframe));
         SetColumn(center, 1);
@@ -86,7 +94,7 @@ public sealed class EditView : Grid
             Container.Items.Add(item);
         }
         Container.SelectedIndex = 0;
-        Container.SelectionChanged += (_, _) => OptionsChanged?.Invoke();
+        Container.SelectionChanged += (_, _) => { if (!_refreshing) OptionsChanged?.Invoke(); };
         ExportButton = Ui.PillButton(Ui.G.Export, "Edit.Export", (_, _) => ExportClicked?.Invoke(), accent: true, height: 40);
         ExportButton.HorizontalAlignment = HorizontalAlignment.Stretch;
         var more = new DropDownButton { Content = Ui.LText("Edit.More", 13.5), HorizontalAlignment = HorizontalAlignment.Stretch, CornerRadius = new CornerRadius(17), Height = 34 };
@@ -158,6 +166,18 @@ public sealed class EditView : Grid
     }
 
     /// <summary>Positions the cards for a window size (also called before the first layout, for transitions).</summary>
+    private bool _refreshing;
+
+    /// <summary>After a language switch: the combo box keeps showing the old text of its selected item.</summary>
+    public void RefreshTexts()
+    {
+        _refreshing = true;
+        int i = Container.SelectedIndex;
+        Container.SelectedIndex = -1;
+        Container.SelectedIndex = i;
+        _refreshing = false;
+    }
+
     public void ArrangeFor(double w, double h)
     {
         if (w <= 0 || h <= 0) return;

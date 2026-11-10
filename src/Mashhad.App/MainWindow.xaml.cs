@@ -68,6 +68,7 @@ public sealed partial class MainWindow : Window
         _ui = DispatcherQueue.GetForCurrentThread();
         _anim = new Animator(_ui);
         _thumbs = new ThumbnailCache(_ui);
+        _thumbs.Tools = () => Mashhad.Editing.FfmpegLocator.Locate(NullIfEmpty(Settings.FfmpegDirectory));
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         Trace("ctor: XAML loaded");
 
@@ -210,6 +211,8 @@ public sealed partial class MainWindow : Window
         _chrome.Captions.HorizontalAlignment = rtl ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         UpdateTitle();
         _gallery.RefreshTexts();
+        _editor.RefreshTexts();
+        if (_keyframes is not null) _editor.KeyframeStatus.Text = Loc.F("Edit.KeyframesLoaded", _keyframes.Count);
         UpdateSegmentsUi();
         UpdateAbout();
         if (_chrome.InfoPanel.Visibility == Visibility.Visible) RefreshInfoPanel();
@@ -301,6 +304,7 @@ public sealed partial class MainWindow : Window
         _host?.SetVisible(mode != AppMode.Folder && _mpv is not null && _queue.Current is not null);
         SyncVideoHost();
         _ui.TryEnqueue(UpdateTitleBarRegions);
+        if (mode == AppMode.Folder) _ui.TryEnqueue(() => { if (_mode == AppMode.Folder && _gallery.Visibility == Visibility.Visible) _gallery.FocusGrid(); });
         if (mode != AppMode.Play) _chromeTimer?.Stop();
         else KickChrome();
     }

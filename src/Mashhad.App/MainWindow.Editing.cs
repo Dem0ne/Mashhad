@@ -114,9 +114,7 @@ public sealed partial class MainWindow
             try
             {
                 const int count = 20;
-                var info = new FileInfo(path);
-                var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Mashhad", "thumbs",
-                    $"{(uint)StringComparer.OrdinalIgnoreCase.GetHashCode(path):x8}-{info.Length:x}-{info.LastWriteTimeUtc.Ticks:x}");
+                var dir = System.IO.Path.Combine(ThumbnailCache.CacheDirectory, ThumbnailCache.StableKey(path));
                 Directory.CreateDirectory(dir);
                 var frames = new List<(double Time, string File)>();
                 for (int i = 0; i < count; i++) frames.Add((duration * (i + 0.5) / count, System.IO.Path.Combine(dir, $"{i:00}.jpg")));
