@@ -484,6 +484,7 @@ public sealed partial class MainWindow : Window
                 Activate();
             }
             _chrome.Captions.Visibility = Visibility.Visible;
+            _chrome.TitlePill.Visibility = _chrome.Modes.Visibility = Visibility.Visible;
         }
         else
         {
