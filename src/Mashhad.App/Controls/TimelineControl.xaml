@@ -20,7 +20,7 @@
                    Fill="{ThemeResource AccentFillColorDefaultBrush}" />
         <Ellipse x:Name="Thumb" Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Center"
                  IsHitTestVisible="False" Fill="{ThemeResource AccentFillColorDefaultBrush}"
-                 Stroke="{ThemeResource ControlFillColorSolidDefaultBrush}" StrokeThickness="2">
+                 Stroke="{ThemeResource ControlSolidFillColorDefaultBrush}" StrokeThickness="2">
             <Ellipse.RenderTransform>
                 <TranslateTransform x:Name="ThumbShift" X="1" />
             </Ellipse.RenderTransform>

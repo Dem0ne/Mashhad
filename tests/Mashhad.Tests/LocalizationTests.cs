@@ -75,6 +75,38 @@ public class LocalizationTests
         Assert.Empty(en.Keys.Except(used).OrderBy(k => k));      // defined but never used
     }
 
+    /// <summary>
+    /// A misspelt resource key compiles but crashes the app when the XAML loads. Every key the XAML
+    /// references must be defined in App.xaml or be on this list of keys verified to exist in WinUI.
+    /// </summary>
+    [Fact]
+    public void Xaml_resource_keys_are_known()
+    {
+        var known = new HashSet<string>
+        {
+            "ControlSolidFillColorDefaultBrush", "ControlStrongFillColorDefaultBrush", "LayerFillColorDefaultBrush",
+            "CardStrokeColorDefaultBrush", "SolidBackgroundFillColorBaseBrush", "AccentFillColorDefaultBrush",
+            "CaptionTextBlockStyle", "BodyStrongTextBlockStyle", "AccentButtonStyle", "DefaultButtonStyle",
+            "DefaultToggleButtonStyle", "SymbolThemeFontFamily",
+        };
+        var app = Path.Combine(FindRepoRoot(), "src", "Mashhad.App");
+        foreach (Match m in Regex.Matches(File.ReadAllText(Path.Combine(app, "App.xaml")), "x:Key=\"(\\w+)\""))
+            known.Add(m.Groups[1].Value);
+
+        var files = Directory.EnumerateFiles(app, "*.*", SearchOption.AllDirectories)
+            .Where(f => (f.EndsWith(".xaml") || f.EndsWith(".cs")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                        && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"));
+        var used = new HashSet<string>();
+        foreach (var file in files)
+        {
+            var text = File.ReadAllText(file);
+            foreach (Match m in Regex.Matches(text, @"\{(?:ThemeResource|StaticResource) (\w+)\}")) used.Add(m.Groups[1].Value);
+            foreach (Match m in Regex.Matches(text, "Resources\\[\"(\\w+)\"\\]")) used.Add(m.Groups[1].Value);
+        }
+        Assert.True(used.Count >= 10);
+        Assert.Empty(used.Except(known).OrderBy(k => k));
+    }
+
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
