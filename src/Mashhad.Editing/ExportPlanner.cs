@@ -66,7 +66,7 @@ public static class ExportPlanner
         var sourceFull = Path.GetFullPath(source);
         var dir = string.IsNullOrWhiteSpace(options.OutputDirectory)
             ? Path.GetDirectoryName(sourceFull) ?? "."
-            : options.OutputDirectory!;
+            : Path.GetFullPath(options.OutputDirectory!);
         var baseName = Path.GetFileNameWithoutExtension(sourceFull);
         var ext = string.IsNullOrWhiteSpace(options.Extension) ? Path.GetExtension(sourceFull) : options.Extension!;
         if (!ext.StartsWith('.')) ext = "." + ext;
@@ -123,7 +123,7 @@ public static class ExportPlanner
         Func<string, bool>? fileExists = null)
     {
         var full = Path.GetFullPath(source);
-        var dir = string.IsNullOrWhiteSpace(directory) ? Path.GetDirectoryName(full) ?? "." : directory!;
+        var dir = string.IsNullOrWhiteSpace(directory) ? Path.GetDirectoryName(full) ?? "." : Path.GetFullPath(directory!);
         var ext = extension ?? Path.GetExtension(full);
         return Unique(Path.Combine(dir, $"{Path.GetFileNameWithoutExtension(full)}-{suffix}{ext}"),
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { full }, fileExists ?? File.Exists);

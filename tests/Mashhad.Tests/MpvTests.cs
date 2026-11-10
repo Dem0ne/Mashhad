@@ -93,7 +93,7 @@ public class MpvIntegrationTests
         Assert.Equal(true, seen["pause"]);
 
         var tracks = mpv.GetTracks();
-        Assert.Contains(tracks, t => t.Type == "video" && t.Codec == "h264" && t.Selected);
+        Assert.Contains(tracks, t => t.Type == "video" && t.Codec == Tools.VideoCodec && t.Selected);
         Assert.Contains(tracks, t => t.Type == "audio");
 
         mpv.Command("seek", "1.5", "absolute+exact");

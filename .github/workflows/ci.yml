@@ -59,7 +59,7 @@ jobs:
           $exe = "$PWD\publish\Mashhad\Mashhad.exe"
           $ffmpeg = "$PWD\native\ffmpeg\ffmpeg.exe"
           New-Item -ItemType Directory -Force smoke | Out-Null
-          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=640x360:rate=30:duration=6" -f lavfi -i "sine=frequency=440:duration=6" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "smoke\فيديو sample.mp4"
+          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=640x360:rate=30:duration=6" -f lavfi -i "sine=frequency=440:duration=6" -c:v mpeg4 -q:v 4 -pix_fmt yuv420p -c:a aac -shortest "smoke\فيديو sample.mp4"
           & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=1280x720:rate=1" -frames:v 1 -update 1 "smoke\photo.png"
           if (-not (Test-Path "smoke\photo.png")) { throw "could not create test media" }
 

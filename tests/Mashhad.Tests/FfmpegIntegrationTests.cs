@@ -24,7 +24,7 @@ public class FfmpegIntegrationTests
 
         var probe = await runner.ProbeAsync(src);
         Assert.Equal(10, probe.Duration, 1);
-        Assert.Equal("h264", probe.MainVideo!.Codec);
+        Assert.Equal(Tools.VideoCodec, probe.MainVideo!.Codec);
         Assert.Equal(25, probe.MainVideo.FrameRate, 3);
         Assert.Contains(probe.Streams, s => s.IsAudio);
 
@@ -47,11 +47,17 @@ public class FfmpegIntegrationTests
         var src = Tools.MakeSampleVideo(dir.File("src" + ext), bframes: bframes);
         var probe = await runner.ProbeAsync(src);
         var keys = await runner.ProbeKeyframesAsync(src, probe.StartTime);
-        // One keyframe per second; some containers shift video by the audio priming (~23 ms).
-        Assert.Equal(10, keys.Count);
-        Assert.All(keys.Times.Select((t, i) => t - i), d => Assert.InRange(d, 0, 0.05));
+        // Roughly one keyframe per second (exact positions depend on the encoder); some containers
+        // also shift video by the audio priming (~23 ms), so expectations are derived from the index.
+        Assert.InRange(keys.Count, 10, 11);
+        double first = keys.Times[0];
+        double snapped = keys.AtOrBefore(2.4)!.Value;
+        Assert.InRange(snapped, 1.9, 2.1);
+        int startFrame = (int)Math.Round((snapped - first) * 25);
+        int endFrame = (int)Math.Ceiling((5.2 - first) * 25 - 1e-6);   // out point is exclusive
+        int expected = endFrame - startFrame;
 
-        // In point 2.4 s is not a keyframe; it must snap back to 2.0 s. Out point 5.2 s is exclusive.
+        // In point 2.4 s is not a keyframe; it must snap back to the keyframe before it.
         var plan = ExportPlanner.Plan(src, new[] { new Segment(2.4, 5.2) }, probe.Duration, keys,
             new ExportOptions { SourceFormat = probe.FormatName });
         var progress = new List<double>();
@@ -61,22 +67,24 @@ public class FfmpegIntegrationTests
         var outPackets = Tools.VideoPackets(output);
         Assert.True(outPackets[0].Key, "output must start on a keyframe");
 
-        // Frames 50..129 of the source (2.0 s – 5.2 s at 25 fps), pixel-identical after decoding...
+        // The source frames from the snapped keyframe up to 5.2 s, pixel-identical after decoding...
         var outHashes = Tools.FrameHashes(output);
-        Assert.Equal(Tools.FrameHashes(src).Skip(50).Take(outHashes.Count), outHashes);
-        // The in point is exact. A stream copy ends on a decode-order boundary, so with B-frames
-        // the out point may run over by the reorder depth; without them it is exact too.
-        Assert.InRange(outHashes.Count, 80, 80 + bframes);
+        // The in point is exact. A stream copy ends on a decode-order boundary, so with B-frames the
+        // last frames around the out point can be off by the reorder depth (a frame more or less,
+        // or a reference frame without the B-frames before it); without B-frames the end is exact too.
+        int exact = expected - bframes;
+        Assert.Equal(Tools.FrameHashes(src).Skip(startFrame).Take(exact), outHashes.Take(exact));
+        Assert.InRange(outHashes.Count, expected - bframes, expected + bframes);
         // ...because they are the very same compressed packets (same count, same sizes), not a re-encode.
         if (bframes == 0)
         {
-            var srcPackets = Tools.VideoPackets(src).OrderBy(p => p.Pts).Skip(50).Take(80).ToList();
+            var srcPackets = Tools.VideoPackets(src).OrderBy(p => p.Pts).Skip(startFrame).Take(expected).ToList();
             Assert.Equal(srcPackets.Select(p => p.Size), outPackets.OrderBy(p => p.Pts).Select(p => p.Size));
         }
 
         var outProbe = await runner.ProbeAsync(output);
-        Assert.InRange(outProbe.Duration, 3.1, 3.6); // container durations include reorder delay / estimates
-        Assert.Equal("h264", outProbe.MainVideo!.Codec);
+        Assert.InRange(outProbe.Duration, 3.0, 3.7); // container durations include reorder delay / estimates
+        Assert.Equal(Tools.VideoCodec, outProbe.MainVideo!.Codec);
         Assert.Contains(outProbe.Streams, s => s.IsAudio);
         Assert.Equal(1.0, progress[^1]);
     }

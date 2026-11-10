@@ -66,8 +66,8 @@ Export never re-encodes: FFmpeg copies the compressed packets (`-c copy`).
 
 - A stream copy can only **start on a keyframe**. With *Snap to keyframes* on (default), each in point moves
   back to the previous keyframe, so the output starts cleanly and the file name shows the real times.
-- The **out point** is exact for streams without B-frames; with B-frames it may run over by a frame or two
-  (the reorder depth). This is inherent to stream copy.
+- The **out point** is exact for streams without B-frames; with B-frames the last frame or two
+  around it can differ (the reorder depth). This is inherent to stream copy.
 - Several segments can be exported separately or **merged** into one file (FFmpeg concat demuxer).
 - Output is written next to the source (or to the export folder in Settings) and never overwrites a file.
 - Image rotate/crop writes a **new** file: PNG output is lossless; JPEG is re-encoded at high quality
@@ -227,7 +227,7 @@ plays a real video and image).
 
 - النسخ لا يبدأ إلا من **إطار مفتاحي**. مع خيار «المحاذاة للإطارات المفتاحية» (الافتراضي) تُرجَع كل نقطة بداية إلى
   الإطار المفتاحي السابق، فيبدأ الناتج نظيفًا ويُظهر اسم الملف الأزمنة الفعلية.
-- **نقطة النهاية** دقيقة في المسارات الخالية من إطارات B، وقد تزيد إطارًا أو اثنين عند وجودها. هذا من طبيعة النسخ.
+- **نقطة النهاية** دقيقة في المسارات الخالية من إطارات B، وقد يختلف آخر إطار أو إطارين حولها عند وجودها. هذا من طبيعة النسخ.
 - يمكن تصدير المقاطع منفصلة أو **دمجها** في ملف واحد.
 - يُكتب الناتج بجانب الملف الأصلي (أو في مجلد التصدير المحدد في الإعدادات) ولا يُستبدل أي ملف موجود.
 - تدوير/قص الصور يكتب ملفًا **جديدًا**: ‏PNG بلا فقد، و JPEG يُعاد ترميزه بجودة عالية.

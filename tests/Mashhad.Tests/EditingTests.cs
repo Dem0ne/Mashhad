@@ -226,6 +226,9 @@ public class ExportPlannerTests
     private static readonly KeyframeIndex Keys = new(new[] { 0.0, 2.0, 4.0, 6.0, 8.0 });
     private static readonly Func<string, bool> NoFiles = _ => false;
 
+    /// <summary>Expected output path: the planner works with full paths ("/v" is "D:\v" on Windows).</summary>
+    private static string P(string dir, string name) => Path.Combine(Path.GetFullPath(dir), name);
+
     [Fact]
     public void Starts_snap_back_to_keyframes_and_names_reflect_the_real_cut()
     {
@@ -233,7 +236,7 @@ public class ExportPlannerTests
 
         Assert.Equal(new Segment(2.0, 5.5), plan.EffectiveSegments.Single());
         var step = plan.Steps.Single();
-        Assert.Equal(Path.Combine("/v", "movie-00.00.02.000-00.00.05.500.mkv"), step.Output);
+        Assert.Equal(P("/v", "movie-00.00.02.000-00.00.05.500.mkv"), step.Output);
         Assert.Equal(3.5, step.Duration, 6);
         var a = step.Arguments;
         // Aim past the keyframe (but inside its GOP) so FFmpeg lands on it in every container.
@@ -289,8 +292,8 @@ public class ExportPlannerTests
         var plan = ExportPlanner.Plan("/v/m.mp4", segs, 10, Keys, new ExportOptions { Merge = true, OutputDirectory = "/out" }, NoFiles);
 
         Assert.Equal(3, plan.Steps.Count);
-        Assert.Equal(Path.Combine("/out", "m-the_ end_.mp4"), plan.Steps[1].Output);   // names are sanitised
-        Assert.Equal(Path.Combine("/out", "m-merged.mp4"), plan.Steps[2].Output);
+        Assert.Equal(P("/out", "m-the_ end_.mp4"), plan.Steps[1].Output);   // names are sanitised
+        Assert.Equal(P("/out", "m-merged.mp4"), plan.Steps[2].Output);
         Assert.Equal(new[] { plan.Steps[2].Output }, plan.Outputs);
         Assert.Contains(plan.Steps[0].Output, plan.TemporaryFiles);
         Assert.Contains(plan.ConcatListPath!, plan.Steps[2].Arguments);
@@ -309,10 +312,10 @@ public class ExportPlannerTests
     [Fact]
     public void Never_overwrites_existing_files_or_the_source()
     {
-        var existing = new HashSet<string> { Path.Combine("/v", "m-00.00.00.000-00.00.02.000.mp4") };
+        var existing = new HashSet<string> { P("/v", "m-00.00.00.000-00.00.02.000.mp4") };
         var plan = ExportPlanner.Plan("/v/m.mp4", new[] { new Segment(0, 2), new Segment(0, 2) }, 10, Keys, new ExportOptions(), existing.Contains);
-        Assert.Equal(Path.Combine("/v", "m-00.00.00.000-00.00.02.000 (2).mp4"), plan.Steps[0].Output);
-        Assert.Equal(Path.Combine("/v", "m-00.00.00.000-00.00.02.000 (3).mp4"), plan.Steps[1].Output);
+        Assert.Equal(P("/v", "m-00.00.00.000-00.00.02.000 (2).mp4"), plan.Steps[0].Output);
+        Assert.Equal(P("/v", "m-00.00.00.000-00.00.02.000 (3).mp4"), plan.Steps[1].Output);
         Assert.NotEqual(Path.GetFullPath("/v/m.mp4"), ExportPlanner.DerivedPath("/v/m.mp4", "x", fileExists: NoFiles));
     }
 
@@ -364,7 +367,7 @@ public class ProbeAndProgressTests
         dir.Touch("cfg/bin/ffmpeg" + exe); dir.Touch("cfg/bin/ffprobe" + exe);
         dir.Touch("app/ffmpeg/ffmpeg" + exe); dir.Touch("app/ffmpeg/ffprobe" + exe);
 
-        Assert.Equal(dir.File("cfg/bin/ffmpeg" + exe), FfmpegLocator.Locate(dir.File("cfg"), dir.File("app"), "")!.Ffmpeg);
+        Assert.Equal(Path.Combine(dir.File("cfg"), "bin", "ffmpeg" + exe), FfmpegLocator.Locate(dir.File("cfg"), dir.File("app"), "")!.Ffmpeg);
         Assert.Equal(Path.Combine(dir.File("app"), "ffmpeg", "ffprobe" + exe), FfmpegLocator.Locate(null, dir.File("app"), "")!.Ffprobe);
         Assert.Null(FfmpegLocator.Locate(null, dir.File("nowhere"), ""));
     }

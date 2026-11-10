@@ -39,15 +39,40 @@ public static class Tools
         return output;
     }
 
+    /// <summary>
+    /// Encoder used to make test clips: libx264 when the FFmpeg build has it, otherwise the built-in
+    /// MPEG-4 encoder (LGPL builds such as the one the app bundles ship without x264).
+    /// MASHHAD_TEST_ENCODER forces one.
+    /// </summary>
+    public static readonly string VideoEncoder = PickEncoder();
+
+    /// <summary>Codec name ffprobe reports for clips made with <see cref="VideoEncoder"/>.</summary>
+    public static string VideoCodec => VideoEncoder == "libx264" ? "h264" : "mpeg4";
+
+    private static string PickEncoder()
+    {
+        var forced = Environment.GetEnvironmentVariable("MASHHAD_TEST_ENCODER");
+        if (!string.IsNullOrWhiteSpace(forced)) return forced;
+        if (Paths is null) return "libx264";
+        try { return Run(Paths.Ffmpeg, "-hide_banner", "-encoders").Contains(" libx264 ") ? "libx264" : "mpeg4"; }
+        catch (InvalidOperationException) { return "mpeg4"; }
+    }
+
     /// <summary>10 s, 25 fps test clip with a keyframe exactly every second and a stereo tone.</summary>
     public static string MakeSampleVideo(string path, int seconds = 10, string size = "320x240", int bframes = 0)
     {
-        Run(Paths!.Ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
+        var args = new List<string>
+        {
+            "-hide_banner", "-loglevel", "error", "-y",
             "-f", "lavfi", "-i", $"testsrc2=size={size}:rate=25:duration={seconds}",
             "-f", "lavfi", "-i", $"sine=frequency=440:duration={seconds}",
-            "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
-            "-g", "25", "-keyint_min", "25", "-sc_threshold", "0", "-bf", bframes.ToString(),
-            "-c:a", "aac", "-b:a", "64k", "-shortest", path);
+            "-c:v", VideoEncoder, "-pix_fmt", "yuv420p", "-g", "25", "-keyint_min", "25", "-bf", bframes.ToString(),
+        };
+        // Fixed GOP: no extra keyframes on scene changes (the option means different things per encoder).
+        if (VideoEncoder == "libx264") args.AddRange(new[] { "-preset", "ultrafast", "-sc_threshold", "0" });
+        else args.AddRange(new[] { "-q:v", "5", "-sc_threshold", "1000000000" });
+        args.AddRange(new[] { "-c:a", "aac", "-b:a", "64k", "-shortest", path });
+        Run(Paths!.Ffmpeg, args.ToArray());
         return path;
     }
 
