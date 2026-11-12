@@ -73,9 +73,9 @@ internal static class Theme
         if (overVideo)
         {
             return Vertical(
-                (Color.FromArgb(0x9E, 0x3C, 0x34, 0x40), 0),
-                (Color.FromArgb(0x8C, 0x22, 0x1C, 0x26), 0.5),
-                (Color.FromArgb(0x99, 0x16, 0x12, 0x1A), 1));
+                (Color.FromArgb(0xBC, 0x3C, 0x34, 0x40), 0),
+                (Color.FromArgb(0xB0, 0x22, 0x1C, 0x26), 0.5),
+                (Color.FromArgb(0xB8, 0x16, 0x12, 0x1A), 1));
         }
         return new AcrylicBrush
         {

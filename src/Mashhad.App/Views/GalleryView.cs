@@ -477,7 +477,8 @@ public sealed class GalleryView : Grid
         var img = new Image { Stretch = Stretch.UniformToFill, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         root.Children.Add(img);
         var badgeText = Ui.Time("", 11.5, true);
-        var badge = new Border { Child = badgeText, Background = Ui.Black(0.55), CornerRadius = new CornerRadius(5), Padding = new Thickness(7, 2, 7, 2), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(8), Visibility = Visibility.Collapsed };
+        var badge = new Border { Child = badgeText, Background = Ui.Black(0.55), CornerRadius = new CornerRadius(5), Padding = new Thickness(7, 2, 7, 2), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8), Visibility = Visibility.Collapsed };
+        // Top corner: clear of the caption (bottom) and the selection check (other top corner).
         if (e.Item.Kind == MediaKind.AnimatedImage) { badgeText.Text = "GIF"; badge.Visibility = Visibility.Visible; }
         root.Children.Add(badge);
         var caption = new Border
