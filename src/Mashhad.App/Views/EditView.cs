@@ -250,9 +250,7 @@ public sealed class EditView : Grid
 
     private static Border Card(UIElement child)
     {
-        var b = Ui.Pill(child, radius: 14, padding: new Thickness(0));
-        b.Background = Ui.Solid(0xC8, 0x16, 0x18, 0x1C);
-        return b;
+        return Ui.Surface(child, SurfaceKind.Panel, 14, new Thickness(0));
     }
 
     private static TextBlock Header(string key)

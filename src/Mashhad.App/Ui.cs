@@ -31,28 +31,19 @@ internal static class Ui
     public static SolidColorBrush White(double opacity) => new(Color.FromArgb((byte)Math.Round(255 * opacity), 255, 255, 255));
     public static SolidColorBrush Black(double opacity) => new(Color.FromArgb((byte)Math.Round(255 * opacity), 0, 0, 0));
 
-    /// <summary>Floating "acrylic" card. Over the native video window only a translucent fill works.</summary>
-    public static Brush Card(bool overVideo = false)
-    {
-        if (overVideo) return Solid(0xD0, 0x14, 0x15, 0x18);
-        return new AcrylicBrush
-        {
-            TintColor = Color.FromArgb(255, 0x14, 0x15, 0x18),
-            TintOpacity = 0.72,
-            TintLuminosityOpacity = 0.9,
-            FallbackColor = Color.FromArgb(0xF0, 0x1A, 0x1B, 0x1F),
-        };
-    }
+    /// <summary>A floating card fill in the current theme (see <see cref="Theme"/>).</summary>
+    public static Brush Card(bool overVideo = false) => Theme.Fill(overVideo);
 
-    public static Border Pill(UIElement child, bool overVideo = false, double radius = 18, Thickness? padding = null) => new()
+    /// <summary>A floating surface; it follows the theme (fill, edge highlight, corner radius) live.</summary>
+    public static Border Pill(UIElement child, bool overVideo = false, double radius = 18, Thickness? padding = null) =>
+        Surface(child, overVideo ? SurfaceKind.OverVideo : SurfaceKind.Floating, radius, padding);
+
+    public static Border Surface(UIElement child, SurfaceKind kind, double radius, Thickness? padding = null)
     {
-        Child = child,
-        Background = Card(overVideo),
-        BorderBrush = White(0.09),
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(radius),
-        Padding = padding ?? new Thickness(4),
-    };
+        var b = new Border { Child = child, Padding = padding ?? new Thickness(4) };
+        Theme.Register(b, kind, radius);
+        return b;
+    }
 
     public static FontIcon Icon(string glyph, double size = 16) => new()
     {

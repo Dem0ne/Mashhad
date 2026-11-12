@@ -16,10 +16,8 @@ namespace Mashhad.App.Views;
 /// </summary>
 public sealed class PlayChrome : Grid
 {
-    public readonly ModeSwitcher Modes = new(overVideo: true);
     public readonly SeekBar Seek = new();
     public readonly Grid Chrome = new();
-    public readonly TextBlock TitleText = Ui.Text("", 13.5, true), ContextText = Ui.Text("", 13, false, 0.62);
     public readonly TextBlock TimeText = Ui.Time("00:00", 14, true), ZoomText = Ui.Text("100%", 13, true);
     public readonly TextBlock SpeedText = Ui.Text("1×", 13, true), ChipText = Ui.Text("", 12.5);
     public readonly TextBlock CropSizeText = Ui.Text("", 13.5, true), ToastText = Ui.Text("", 13.5);
@@ -27,15 +25,12 @@ public sealed class PlayChrome : Grid
     public readonly Slider Volume = new() { Width = 92, Minimum = 0, Maximum = 100, IsThumbToolTipEnabled = false, VerticalAlignment = VerticalAlignment.Center, IsTabStop = false };
     public readonly MenuFlyout SpeedMenu = new(), SubsMenu = new(), AudioMenu = new(), MoreMenu = new();
     public readonly StackPanel InfoRows = new() { Spacing = 10 };
-    public readonly Border InfoPanel, CropBar, Toast, Chip, Dock, EdgePrev, EdgeNext, TitlePill;
-    public readonly StackPanel Captions;
-    public readonly Button PlayPause, MaxButton;
-    public readonly FontIcon MaxGlyph = Ui.Icon(Ui.G.Max, 10);
+    public readonly Border InfoPanel, CropBar, Toast, Chip, Dock, EdgePrev, EdgeNext;
+    public readonly Button PlayPause;
     private readonly StackPanel _videoLeft, _imageLeft, _videoCenter, _videoRight, _imageRight;
     private readonly Rectangle _scrimTop, _scrimBottom;
 
     public event Action<PlayerCommand>? Command;
-    public event Action? DragWindow, MaximizeToggle, MinimizeRequested, CloseRequested;
 
     public PlayChrome()
     {
@@ -48,35 +43,13 @@ public sealed class PlayChrome : Grid
         Chrome.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(200) };
         Children.Add(Chrome);
 
-        // title pill (drag to move the window, double-click to maximise)
-        TitlePill = Ui.Pill(Ui.Row(10, Ui.Logo(18), TitleText, ContextText), overVideo: true, radius: 17, padding: new Thickness(10, 0, 14, 0));
-        TitlePill.Height = 34;
-        TitlePill.HorizontalAlignment = HorizontalAlignment.Left;
-        TitlePill.VerticalAlignment = VerticalAlignment.Top;
-        TitlePill.Margin = new Thickness(12, 9, 0, 0);
-        TitlePill.MaxWidth = 560;
-        TitlePill.PointerPressed += (_, e) => { if (e.GetCurrentPoint(TitlePill).Properties.IsLeftButtonPressed) DragWindow?.Invoke(); };
-        TitlePill.DoubleTapped += (_, _) => MaximizeToggle?.Invoke();
-        Chrome.Children.Add(TitlePill);
-
-        Modes.HorizontalAlignment = HorizontalAlignment.Center;
-        Modes.VerticalAlignment = VerticalAlignment.Top;
-        Modes.Margin = new Thickness(0, 7, 0, 0);
-        Chrome.Children.Add(Modes);
-
-        // own caption buttons (the overlay covers the system ones)
-        MaxButton = Caption(MaxGlyph, () => MaximizeToggle?.Invoke());
-        Captions = Ui.Row(0, Caption(Ui.Icon(Ui.G.Min, 10), () => MinimizeRequested?.Invoke()), MaxButton,
-            Caption(Ui.Icon(Ui.G.Close, 10), () => CloseRequested?.Invoke(), danger: true));
-        Captions.HorizontalAlignment = HorizontalAlignment.Right;
-        Captions.VerticalAlignment = VerticalAlignment.Top;
-        Captions.FlowDirection = FlowDirection.LeftToRight;
-        Chrome.Children.Add(Captions);
+        // The window's title band (title pill, mode switcher, system caption buttons) belongs to the
+        // main window and stays above this overlay, so dragging and the caption buttons are native.
 
         Chip = Ui.Pill(Ui.Row(8, new Ellipse { Width = 8, Height = 8, Fill = Ui.Brand() }, ChipText), overVideo: true, radius: 15, padding: new Thickness(12, 5, 14, 5));
         Chip.HorizontalAlignment = HorizontalAlignment.Left;
         Chip.VerticalAlignment = VerticalAlignment.Top;
-        Chip.Margin = new Thickness(12, 52, 0, 0);
+        Chip.Margin = new Thickness(12, 10, 0, 0);
         Chrome.Children.Add(Chip);
 
         EdgePrev = Edge(Ui.G.ChevL, PlayerCommand.PreviousItem, HorizontalAlignment.Left);
@@ -194,14 +167,6 @@ public sealed class PlayChrome : Grid
             VerticalAlignment = top ? VerticalAlignment.Top : VerticalAlignment.Bottom,
             OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(200) },
         };
-    }
-
-    private Button Caption(FontIcon glyph, Action click, bool danger = false)
-    {
-        var b = new Button { Content = glyph, Width = 46, Height = 36, Padding = new Thickness(0), CornerRadius = new CornerRadius(0), BorderThickness = new Thickness(0), Background = new SolidColorBrush(Colors.Transparent), IsTabStop = false };
-        if (danger) b.Resources["ButtonBackgroundPointerOver"] = Ui.Solid(255, 0xC4, 0x2B, 0x1C);
-        b.Click += (_, _) => click();
-        return b;
     }
 
     private Border Edge(string glyph, PlayerCommand cmd, HorizontalAlignment side)

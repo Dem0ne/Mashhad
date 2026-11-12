@@ -38,6 +38,15 @@ replace both the Windows Photos app and the default video player.
 - **Slideshow** mixing images (timed) and videos (played to the end).
 - **Arabic and English** with a full right-to-left layout, in a dark theme with the crimson brand gradient
   (`#FF5E7E → #E6223F → #8E1035`).
+- **مظهران** يُبدَّل بينهما فورًا من الإعدادات أو من قائمة •••، ويُحفظ الاختيار: المظهر الداكن الافتراضي، و**الزجاج السائل**
+  (Liquid Glass): سطح المكتب مموَّه خلف النافذة (Acrylic، أو Mica حيث لا يتوفر)، وألواح شفافة مضيئة الحواف بزوايا أكثر
+  استدارة، مع اللون القرمزي نفسه. ويشمل شريط التحكم والمجلد والتشغيل والتحرير ومبدّل الأوضاع وشارات المعلومات.
+- **إطار النافذة أصلي:** منطقة السحب وأزرار التصغير والتكبير والإغلاق من النظام (بلون داكن)، دون حدّ أبيض حول النافذة.
+- **Two themes**, switched live from Settings or the ••• menu and remembered: the default dark theme, and
+  **Liquid Glass** — the desktop frosted behind the window (Acrylic, or Mica where Acrylic is unavailable),
+  translucent lit panels with soft highlights and rounder corners, the same crimson accent. It covers the
+  controls bar, Folder, Play and Edit, the Folder/Play/Edit switcher and the info chips.
+- **Native window frame:** the system drag area and caption buttons (styled dark), no light window border.
 - **UI font:** Segoe UI Variable (Consolas for timecodes). Thmanyah Sans is embedded, encrypted, in official
   builds but not applied yet — see [The UI font](#the-ui-font).
 
@@ -224,7 +233,8 @@ font entirely.
   visual rough edges. GPU hardware decoding cannot be exercised on CI machines (no GPU).
 - The Play chrome floats over the video in a transparent window. Its panels are translucent but not blurred
   (true acrylic cannot see the video window), and the pointer is not hidden when the chrome fades.
-- The approved design is dark only; there is no light theme.
+- Both themes are dark; there is no light theme. Over the video, Liquid Glass panels are translucent and lit
+  but not blurred (the blur cannot see the native video window).
 - "Preload" warms the OS file cache for the neighbouring files; it does not pre-decode them.
 - Not implemented: lossless JPEG rotation/crop, video crop, choosing individual streams on export (all tracks or
   video+audio+subtitles), chapter editing, renaming segments in the UI, zooming the timeline.
@@ -402,7 +412,8 @@ dotnet test tests/Mashhad.Tests
 - الواجهة جُرّبت بالاختبار الآلي فقط، **ولم يجرّبها إنسان على سطح مكتب حقيقي**: توقّع بعض العيوب الشكلية. ولا يمكن
   اختبار فك الترميز بالعتاد على أجهزة CI (بلا بطاقة رسوميات).
 - أدوات التشغيل العائمة في نافذة شفافة فوق الفيديو: ألواحها شبه شفافة بلا تمويه، والمؤشر لا يُخفى عند اختفاء الأدوات.
-- التصميم المعتمد داكن فقط؛ لا يوجد مظهر فاتح.
+- المظهران داكنان؛ لا يوجد مظهر فاتح. وفوق الفيديو تكون ألواح «الزجاج السائل» شفافة مضيئة دون تمويه (لا يمكن للتمويه رؤية
+  نافذة الفيديو الأصلية).
 - «التحميل المسبق» يُدفئ ذاكرة الملفات المؤقتة للملفات المجاورة ولا يفك ترميزها مسبقًا.
 - غير منفَّذ بعد: تدوير/قص JPEG بلا فقد، قص الفيديو، اختيار مسارات بعينها عند التصدير، تحرير الفصول، إعادة تسمية
   المقاطع من الواجهة، تكبير الخط الزمني.

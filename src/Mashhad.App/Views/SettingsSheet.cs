@@ -8,6 +8,7 @@ namespace Mashhad.App.Views;
 public sealed class SettingsSheet : UserControl
 {
     public readonly ComboBox LanguageBox = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
+    public readonly ComboBox ThemeBox = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     public readonly ToggleSwitch Hwdec = new(), Resume = new(), Wrap = new(), SingleInstance = new(), SlideshowLoop = new(), SlideshowShuffle = new();
     public readonly NumberBox SlideshowSeconds = new() { Minimum = 1, Maximum = 3600, SmallChange = 1, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
     public readonly ComboBox ScreenshotFormat = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -23,6 +24,14 @@ public sealed class SettingsSheet : UserControl
             if (key.Length > 0) L.SetText(i, key); else i.Content = text;
             LanguageBox.Items.Add(i);
         }
+        foreach (var (tag, key) in new[] { (UiThemes.Default, "Theme.Default"), (UiThemes.LiquidGlass, "Theme.LiquidGlass") })
+        {
+            var i = new ComboBoxItem { Tag = tag };
+            L.SetText(i, key);
+            ThemeBox.Items.Add(i);
+        }
+        L.SetText(ThemeBox, "Settings.Theme");
+        ThemeBox.SelectionChanged += (_, _) => { if (!_loading) Changed?.Invoke(); };
         foreach (var (tag, text) in new[] { ("png", "PNG"), ("jpg", "JPEG"), ("webp", "WebP") }) ScreenshotFormat.Items.Add(new ComboBoxItem { Tag = tag, Content = text });
         L.SetText(LanguageBox, "Settings.Language");
         L.SetText(ScreenshotFormat, "Settings.ScreenshotFormat");
@@ -44,19 +53,12 @@ public sealed class SettingsSheet : UserControl
         var close = Ui.IconButton(Ui.G.Close, "Panel.Close", 32, 11, (_, _) => CloseRequested?.Invoke());
         close.HorizontalAlignment = HorizontalAlignment.Right;
         head.Children.Add(close);
-        var body = Ui.Column(12, head, LanguageBox, Hwdec, Resume, Wrap, SingleInstance, SlideshowSeconds, SlideshowLoop, SlideshowShuffle, ScreenshotFormat,
+        var body = Ui.Column(12, head, LanguageBox, ThemeBox, Hwdec, Resume, Wrap, SingleInstance, SlideshowSeconds, SlideshowLoop, SlideshowShuffle, ScreenshotFormat,
             Ui.LText("Settings.Folders", 13.5, true), Wide("Settings.ScreenshotFolder", () => ChooseScreenshotFolder?.Invoke()),
             Wide("Settings.ExportFolder", () => ChooseExportFolder?.Invoke()), Wide("Settings.FfmpegFolder", () => ChooseFfmpegFolder?.Invoke()), Folders,
             Wide("Settings.DefaultApp", () => DefaultApps?.Invoke()), About);
         body.Padding = new Thickness(18, 14, 18, 18);
-        Content = new Border
-        {
-            Child = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
-            Background = Ui.Card(),
-            BorderBrush = Ui.White(0.09),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(16),
-        };
+        Content = Ui.Pill(new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }, radius: 16, padding: new Thickness(0));
         Width = 340;
         HorizontalAlignment = HorizontalAlignment.Right;
         Margin = new Thickness(0, 56, 12, 12);
@@ -67,6 +69,7 @@ public sealed class SettingsSheet : UserControl
     {
         _loading = true;
         Select(LanguageBox, s.Language);
+        Select(ThemeBox, s.UiTheme);
         Select(ScreenshotFormat, s.ScreenshotFormat);
         Hwdec.IsOn = s.HardwareDecoding != "no";
         Resume.IsOn = s.ResumePlayback;
@@ -81,6 +84,7 @@ public sealed class SettingsSheet : UserControl
     public void Save(AppSettings s)
     {
         s.Language = TagOf(LanguageBox, "system");
+        s.UiTheme = TagOf(ThemeBox, UiThemes.Default);
         s.ScreenshotFormat = TagOf(ScreenshotFormat, "png");
         s.HardwareDecoding = Hwdec.IsOn ? "d3d11va" : "no";
         s.ResumePlayback = Resume.IsOn;

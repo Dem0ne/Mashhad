@@ -4,13 +4,20 @@ using Mashhad.Core.Media;
 
 namespace Mashhad.Core.Settings;
 
-public enum AppTheme { System, Dark, Light }
+/// <summary>The app's looks. The default is the dark crimson theme.</summary>
+public static class UiThemes
+{
+    public const string Default = "default";
+    public const string LiquidGlass = "liquid-glass";
+    public static readonly IReadOnlyList<string> All = new[] { Default, LiquidGlass };
+}
 
 public sealed class AppSettings
 {
     /// <summary>"system", "en" or "ar".</summary>
     public string Language { get; set; } = "system";
-    public AppTheme Theme { get; set; } = AppTheme.System;
+    /// <summary>One of <see cref="UiThemes"/>.</summary>
+    public string UiTheme { get; set; } = UiThemes.Default;
 
     /// <summary>mpv <c>hwdec</c> value. D3D11VA keeps CPU and memory use low; "no" forces software decoding.</summary>
     public string HardwareDecoding { get; set; } = "d3d11va";
@@ -103,6 +110,7 @@ public sealed class SettingsStore
         s.WindowWidth = Math.Clamp(s.WindowWidth, 480, 16000);
         s.WindowHeight = Math.Clamp(s.WindowHeight, 320, 16000);
         if (s.Language is not ("system" or "en" or "ar")) s.Language = "system";
+        if (!UiThemes.All.Contains(s.UiTheme)) s.UiTheme = UiThemes.Default;
         if (s.ScreenshotFormat is not ("png" or "jpg" or "webp")) s.ScreenshotFormat = "png";
         if (string.IsNullOrWhiteSpace(s.HardwareDecoding)) s.HardwareDecoding = "d3d11va";
         s.ScreenshotDirectory ??= "";

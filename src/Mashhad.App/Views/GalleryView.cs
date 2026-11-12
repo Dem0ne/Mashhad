@@ -206,6 +206,9 @@ public sealed class GalleryView : Grid
         fb.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0, 11, 12, 15), Offset = 0 });
         fb.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(235, 11, 12, 15), Offset = 1 });
         fade.Fill = fb;
+        // In Liquid Glass the wall is translucent: a lighter fade keeps the frosted look at the bottom.
+        void ThemeChanged() { fade.Opacity = Theme.Glass ? 0.4 : 1; Relayout(keepFocus: true); }
+        Theme.Changed += ThemeChanged;
 
         Children.Add(_content);
         Children.Add(fade);
@@ -463,7 +466,14 @@ public sealed class GalleryView : Grid
     {
         var e = Model.Visible[index];
         double w = JustifiedLayout.ItemWidth(e.Aspect, height);
-        var root = new Grid { Width = w, Height = height, CornerRadius = new CornerRadius(10), Background = Ui.White(0.05) };
+        double radius = Theme.Glass ? 16 : 10;
+        var root = new Grid { Width = w, Height = height, CornerRadius = new CornerRadius(radius), Background = Ui.White(0.05) };
+        if (Theme.Glass)
+        {
+            // Glass tiles: a soft light edge, as on the other glass surfaces.
+            root.BorderBrush = Theme.Stroke(false);
+            root.BorderThickness = new Thickness(1);
+        }
         var img = new Image { Stretch = Stretch.UniformToFill, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         root.Children.Add(img);
         var badgeText = Ui.Time("", 11.5, true);
@@ -479,7 +489,7 @@ public sealed class GalleryView : Grid
         root.Children.Add(caption);
         var check = new Border { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), Background = Ui.Brand(), Child = Ui.Icon(Ui.G.Check, 11), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8), Visibility = Visibility.Collapsed };
         root.Children.Add(check);
-        var ring = new Border { CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(3), BorderBrush = new SolidColorBrush(Ui.Rose), Visibility = Visibility.Collapsed, IsHitTestVisible = false };
+        var ring = new Border { CornerRadius = new CornerRadius(radius), BorderThickness = new Thickness(3), BorderBrush = new SolidColorBrush(Ui.Rose), Visibility = Visibility.Collapsed, IsHitTestVisible = false };
         root.Children.Add(ring);
 
         var tile = new Tile { Root = root, Image = img, Ring = ring, Check = check, Badge = badge, BadgeText = badgeText, Caption = caption, Index = index };

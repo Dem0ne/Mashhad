@@ -68,9 +68,18 @@ internal static class Win32
     [DllImport("user32.dll")] public static extern bool PostMessageW(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hwnd, ref POINT point);
-    [DllImport("user32.dll")] public static extern IntPtr SendMessageW(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
-    public const uint WM_NCLBUTTONDOWN = 0x00A1;
-    public const int HTCAPTION = 2;
+    [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+    public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20, DWMWA_BORDER_COLOR = 34;
+    /// <summary>DWMWA_BORDER_COLOR value that removes the 1px window border (Windows 11).</summary>
+    public const int DWMWA_COLOR_NONE = unchecked((int)0xFFFFFFFE);
+
+    /// <summary>Dark window frame and no light 1px border around the window.</summary>
+    public static void UseDarkFrame(IntPtr hwnd)
+    {
+        int on = 1, none = DWMWA_COLOR_NONE;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref on, sizeof(int));
+        DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, ref none, sizeof(int)); // ignored before Windows 11
+    }
     [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern short GetKeyState(int vk);
     [DllImport("gdi32.dll")] public static extern IntPtr GetStockObject(int index);

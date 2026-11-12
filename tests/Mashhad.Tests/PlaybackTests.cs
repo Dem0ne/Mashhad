@@ -312,13 +312,14 @@ public class SettingsTests
         var store = new SettingsStore(dir.File("cfg/settings.json"));
         Assert.Equal("d3d11va", store.Current.HardwareDecoding); // hardware decoding is the default
         store.Current.Language = "ar";
-        store.Current.Theme = AppTheme.Dark;
+        Assert.Equal(UiThemes.Default, store.Current.UiTheme); // the current dark theme stays the default
+        store.Current.UiTheme = UiThemes.LiquidGlass;
         store.Current.Volume = 900;
         store.Save();
 
         var again = new SettingsStore(dir.File("cfg/settings.json"));
         Assert.Equal("ar", again.Current.Language);
-        Assert.Equal(AppTheme.Dark, again.Current.Theme);
+        Assert.Equal(UiThemes.LiquidGlass, again.Current.UiTheme);
         Assert.Equal(150, again.Current.Volume);
     }
 
@@ -332,5 +333,9 @@ public class SettingsTests
         File.WriteAllText(dir.File("s2.json"), "{\"Language\":\"xx\",\"SlideshowSeconds\":0,\"ScreenshotFormat\":\"exe\",\"HardwareDecoding\":null}");
         var s = new SettingsStore(dir.File("s2.json")).Current;
         Assert.Equal(("system", 1.0, "png", "d3d11va"), (s.Language, s.SlideshowSeconds, s.ScreenshotFormat, s.HardwareDecoding));
+
+        // An unknown theme, or settings written before themes existed (old "Theme" value), give the default.
+        File.WriteAllText(dir.File("s3.json"), "{\"UiTheme\":\"neon\",\"Theme\":2}");
+        Assert.Equal(UiThemes.Default, new SettingsStore(dir.File("s3.json")).Current.UiTheme);
     }
 }

@@ -53,6 +53,8 @@ public sealed partial class MainWindow : Window
     private Core.Mpv.MpvPlayer? _mpv;
     private AppMode _mode = AppMode.Folder;
     private bool _closed, _isFullscreen;
+    /// <summary>Height of the window's own title band (drag area, title pill, mode switcher, caption buttons).</summary>
+    private const double TitleBand = 52;
     private Rect? _hostOverride;
     private DispatcherQueueTimer? _chromeTimer, _slideshowTimer, _toastTimer;
 
@@ -85,11 +87,13 @@ public sealed partial class MainWindow : Window
             tb.ButtonHoverForegroundColor = Colors.White;
             tb.ButtonHoverBackgroundColor = Windows.UI.Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF);
             tb.ButtonInactiveForegroundColor = Windows.UI.Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF);
+            tb.ButtonPressedForegroundColor = Colors.White;
+            tb.ButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF);
         }, "title bar");
+        TryRun(() => Win32.UseDarkFrame(_hwnd), "dark frame");
         TryRun(() => AppWindow.Resize(new SizeInt32(Settings.WindowWidth, Settings.WindowHeight)), "resize");
         if (smokeTest) TryRun(() => (AppWindow.Presenter as OverlappedPresenter)?.Maximize(), "maximize"); // fill the CI screen for screenshots
         Root.RequestedTheme = ElementTheme.Dark;
-        Root.Background = new SolidColorBrush(Ui.Wall);
 
         // ---- wall ----
         _wall.IsHitTestVisible = false;
@@ -108,7 +112,7 @@ public sealed partial class MainWindow : Window
         Root.Children.Add(_transitionLayer);
 
         // ---- constant chrome: title pill + mode switcher (+ toast) ----
-        _dragRegion = new Border { Height = 52, VerticalAlignment = VerticalAlignment.Top, Background = new SolidColorBrush(Colors.Transparent) };
+        _dragRegion = new Border { Height = TitleBand, VerticalAlignment = VerticalAlignment.Top, Background = new SolidColorBrush(Colors.Transparent) };
         Root.Children.Add(_dragRegion);
         _titlePill = Ui.Pill(Ui.Row(10, Ui.Logo(18), _titleText, _titleContext), radius: 17, padding: new Thickness(10, 0, 14, 0));
         _titlePill.Height = 34;
@@ -135,8 +139,8 @@ public sealed partial class MainWindow : Window
         WireChrome();
         WireEditor();
         WireSettings();
+        ApplyTheme();
         _modes.ModeRequested += m => RequestMode(m);
-        _chrome.Modes.ModeRequested += m => RequestMode(m);
 
         Root.PreviewKeyDown += (_, e) => OnKey(e);
         Root.AllowDrop = true;
@@ -207,8 +211,6 @@ public sealed partial class MainWindow : Window
         _chrome.FlowDirection = dir;
         // System caption buttons stay on the right, so in Arabic the title pill moves left of them.
         _titlePill.Margin = new Thickness(rtl ? 150 : 12, 9, 0, 0);
-        _chrome.TitlePill.Margin = new Thickness(rtl ? 150 : 12, 9, 0, 0);
-        _chrome.Captions.HorizontalAlignment = rtl ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         UpdateTitle();
         _gallery.RefreshTexts();
         _editor.RefreshTexts();
@@ -231,9 +233,34 @@ public sealed partial class MainWindow : Window
         };
         _titleText.Text = name;
         _titleContext.Text = ctx;
-        _chrome.TitleText.Text = name;
-        _chrome.ContextText.Text = ctx;
         Title = name == Loc.T("App.Name") ? name : $"{name} — {Loc.T("App.Name")}";
+    }
+
+    // ---- theme -------------------------------------------------------------------------------
+
+    /// <summary>Applies Settings.UiTheme live: surfaces, wall and the window backdrop.</summary>
+    private void ApplyTheme()
+    {
+        bool glass = Settings.UiTheme == UiThemes.LiquidGlass;
+        Theme.Set(glass);
+        Root.Background = Theme.Wall();
+        _wall.Opacity = glass ? 0.85 : 1;
+        TryRun(() =>
+        {
+            // Liquid Glass: the desktop shows through, frosted (Acrylic; Mica where Acrylic is unsupported).
+            SystemBackdrop = !glass ? null
+                : Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController.IsSupported() ? new DesktopAcrylicBackdrop()
+                : new MicaBackdrop { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt };
+        }, "backdrop");
+    }
+
+    private void SetTheme(string theme)
+    {
+        if (Settings.UiTheme == theme) return;
+        Settings.UiTheme = theme;
+        ApplyTheme();
+        _settingsSheet.Load(Settings);
+        _settingsStore.Save();
     }
 
     // ---- title bar ---------------------------------------------------------------------------
@@ -246,7 +273,7 @@ public sealed partial class MainWindow : Window
         {
             double s = Root.XamlRoot.RasterizationScale;
             var rects = new List<RectInt32>();
-            foreach (var el in new FrameworkElement[] { _titlePill, _modes })
+            foreach (var el in new FrameworkElement[] { _modes })
             {
                 if (el.Visibility != Visibility.Visible || el.ActualWidth <= 0) continue;
                 var r = el.TransformToVisual(null).TransformBounds(new Rect(0, 0, el.ActualWidth, el.ActualHeight));
@@ -296,11 +323,10 @@ public sealed partial class MainWindow : Window
         _playBackdrop.Opacity = 1;
         _settingsSheet.Visibility = mode == AppMode.Folder && _settingsSheet.Visibility == Visibility.Visible ? Visibility.Visible : Visibility.Collapsed;
         _modes.SetMode(mode);
-        _chrome.Modes.SetMode(mode);
         UpdateModeAvailability();
         bool usesOverlay = mode == AppMode.Play;
         ShowPlayChrome(usesOverlay);
-        _titlePill.Visibility = _modes.Visibility = mode == AppMode.Play && _overlay is not null ? Visibility.Collapsed : Visibility.Visible;
+        _titlePill.Visibility = _modes.Visibility = Visibility.Visible;
         _host?.SetVisible(mode != AppMode.Folder && _mpv is not null && _queue.Current is not null);
         SyncVideoHost();
         _ui.TryEnqueue(UpdateTitleBarRegions);
@@ -314,7 +340,6 @@ public sealed partial class MainWindow : Window
         bool play = AppModes.CanEnter(AppMode.Play, _queue.Current);
         bool edit = AppModes.CanEnter(AppMode.Edit, _queue.Current);
         _modes.SetAvailable(play, edit);
-        _chrome.Modes.SetAvailable(play, edit);
     }
 
     /// <summary>Folder → Play: the tile expands into the window while the item loads.</summary>
@@ -395,7 +420,6 @@ public sealed partial class MainWindow : Window
         {
             _mode = AppMode.Edit;
             _modes.SetMode(AppMode.Edit);
-            _chrome.Modes.SetMode(AppMode.Edit);
             _titlePill.Visibility = _modes.Visibility = Visibility.Visible;
             _playBackdrop.Visibility = Visibility.Visible;
         }
@@ -429,8 +453,13 @@ public sealed partial class MainWindow : Window
     private Rect PlayHostRect()
     {
         double w = Root.ActualWidth, h = Root.ActualHeight;
-        // Without the overlay window the chrome cannot float over the video: keep it clear of the dock.
-        return _overlay is null ? new Rect(0, 52, w, Math.Max(1, h - 52 - 150)) : new Rect(0, 0, w, h);
+        if (_isFullscreen) return new Rect(0, 0, w, h);
+        // The title band stays the window's own (system drag, native caption buttons), so the
+        // video starts below it. Without the overlay window the chrome cannot float over the
+        // video either: keep it clear of the dock.
+        return _overlay is null
+            ? new Rect(0, TitleBand, w, Math.Max(1, h - TitleBand - 150))
+            : new Rect(0, TitleBand, w, Math.Max(1, h - TitleBand));
     }
 
     private Rect? EditHostRect()
@@ -482,15 +511,11 @@ public sealed partial class MainWindow : Window
                 _overlay.Hide();
                 Activate();
             }
-            _chrome.Captions.Visibility = Visibility.Visible;
-            _chrome.TitlePill.Visibility = _chrome.Modes.Visibility = Visibility.Visible;
         }
         else
         {
             if (show && _chrome.Parent is null) Root.Children.Add(_chrome);
             _chrome.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            _chrome.Captions.Visibility = Visibility.Collapsed; // the system caption buttons are visible
-            _chrome.TitlePill.Visibility = _chrome.Modes.Visibility = Visibility.Collapsed; // main window shows its own
         }
         if (show) _chrome.SetChromeVisible(true);
     }
@@ -502,29 +527,15 @@ public sealed partial class MainWindow : Window
         var origin = new Win32.POINT();
         Win32.ClientToScreen(_hwnd, ref origin);
         Win32.GetClientRect(_hwnd, out var rc);
-        _overlay.SetBounds(new RectInt32(origin.X, origin.Y, rc.Right - rc.Left, rc.Bottom - rc.Top));
+        // Below the title band, which stays the main window's (dragging, caption buttons).
+        int band = _isFullscreen ? 0 : (int)Math.Round(TitleBand * (Root.XamlRoot?.RasterizationScale ?? 1));
+        int height = Math.Max(1, rc.Bottom - rc.Top - band);
+        _overlay.SetBounds(new RectInt32(origin.X, origin.Y + band, rc.Right - rc.Left, height));
     }
 
     private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
     {
         if (args.DidPositionChange || args.DidSizeChange || args.DidPresenterChange) SyncOverlay();
-        if (args.DidPresenterChange && sender.Presenter is OverlappedPresenter p)
-            _chrome.MaxGlyph.Glyph = p.State == OverlappedPresenterState.Maximized ? Ui.G.Restore : Ui.G.Max;
-    }
-
-    private void DragFromOverlay()
-    {
-        Win32.ReleaseCapture();
-        Win32.SendMessageW(_hwnd, Win32.WM_NCLBUTTONDOWN, (IntPtr)Win32.HTCAPTION, IntPtr.Zero);
-    }
-
-    private void ToggleMaximize()
-    {
-        if (_isFullscreen) { SetFullscreen(false); return; }
-        if (AppWindow.Presenter is OverlappedPresenter p)
-        {
-            if (p.State == OverlappedPresenterState.Maximized) p.Restore(); else p.Maximize();
-        }
     }
 
     // ---- chrome auto-hide (Play) -------------------------------------------------------------

@@ -117,7 +117,7 @@ public sealed partial class MainWindow
         _settingsSheet.CloseRequested += () => _settingsSheet.Visibility = Visibility.Collapsed;
         _settingsSheet.Changed += () =>
         {
-            string oldLanguage = Settings.Language, oldHwdec = Settings.HardwareDecoding;
+            string oldLanguage = Settings.Language, oldHwdec = Settings.HardwareDecoding, oldTheme = Settings.UiTheme;
             _settingsSheet.Save(Settings);
             _queue.Wrap = Settings.WrapGallery;
             _slideshow.Loop = Settings.SlideshowLoop;
@@ -125,6 +125,7 @@ public sealed partial class MainWindow
             _mpv?.Set("screenshot-format", Settings.ScreenshotFormat);
             if (oldHwdec != Settings.HardwareDecoding) _mpv?.Set("hwdec", Settings.HardwareDecoding);
             if (oldLanguage != Settings.Language) ApplyLanguage();
+            if (oldTheme != Settings.UiTheme) ApplyTheme();
             _settingsStore.Save();
         };
         _settingsSheet.ChooseScreenshotFolder += async () =>
@@ -265,7 +266,7 @@ public sealed partial class MainWindow
     private async Task SmokeTourAsync()
     {
         var started = DateTime.UtcNow;
-        string originalLanguage = Settings.Language;
+        string originalLanguage = Settings.Language, originalTheme = Settings.UiTheme;
         async Task<bool> Until(Func<bool> condition, double seconds)
         {
             var until = DateTime.UtcNow.AddSeconds(seconds);
@@ -336,8 +337,30 @@ public sealed partial class MainWindow
                     await Task.Delay(800);
                     await Snap("image");
                 }
+
+                // Liquid Glass, switched live: every mode again.
+                Settings.UiTheme = UiThemes.LiquidGlass;
+                ApplyTheme();
+                await Task.Delay(500);
+                Log.Write($"SMOKE: theme {Settings.UiTheme} applied, glass={Theme.Glass}, backdrop={SystemBackdrop?.GetType().Name ?? "none"}");
+                if (image >= 0) { KickChrome(); await Snap("image-glass"); }
+                if (video >= 0)
+                {
+                    OpenFromGallery(video, AppMode.Play);
+                    if (!await Until(() => _mode == AppMode.Play && _fileReady && _kind == MediaKind.Video, 15)) throw new InvalidOperationException("video did not reopen");
+                    _mpv.Set("pause", true);
+                    KickChrome();
+                    await Snap("play-glass");
+                    RequestMode(AppMode.Edit);
+                    await Until(() => _mode == AppMode.Edit && !_anim.IsRunning, 5);
+                    await Task.Delay(1500);
+                    await Snap("edit-glass");
+                }
                 RequestMode(AppMode.Folder);
                 await Until(() => _mode == AppMode.Folder && !_anim.IsRunning, 5);
+                await Snap("folder-glass");
+                Settings.UiTheme = originalTheme;
+                ApplyTheme();
             }
             else if (_startupFiles.Count > 0 && _mpv is not null)
             {
@@ -361,6 +384,7 @@ public sealed partial class MainWindow
             Environment.ExitCode = 1;
         }
         Settings.Language = originalLanguage;
+        Settings.UiTheme = originalTheme;
         Close();
     }
 }

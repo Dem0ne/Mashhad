@@ -459,6 +459,15 @@ public sealed partial class MainWindow
         Add("Mode.Edit", () => RequestMode(AppMode.Edit), _kind == MediaKind.Video);
         Add("Menu.ShowInExplorer", () => RevealInExplorer(_queue.Current?.Path));
         Add("Menu.SavePlaylist", () => _ = SavePlaylistAsync());
+        m.Items.Add(new MenuFlyoutSeparator());
+        var theme = new MenuFlyoutSubItem { Text = Loc.T("Settings.Theme") };
+        foreach (var (id, key) in new[] { (UiThemes.Default, "Theme.Default"), (UiThemes.LiquidGlass, "Theme.LiquidGlass") })
+        {
+            var item = new RadioMenuFlyoutItem { Text = Loc.T(key), GroupName = "theme", IsChecked = Settings.UiTheme == id };
+            item.Click += (_, _) => SetTheme(id);
+            theme.Items.Add(item);
+        }
+        m.Items.Add(theme);
     }
 
     private void CycleTrack(string property, string osdKey)
@@ -527,10 +536,6 @@ public sealed partial class MainWindow
         _chrome.SubsMenu.Opening += (_, _) => BuildTrackMenu(_chrome.SubsMenu, "sub", "sid", subtitles: true);
         _chrome.AudioMenu.Opening += (_, _) => BuildTrackMenu(_chrome.AudioMenu, "audio", "aid", subtitles: false);
         _chrome.MoreMenu.Opening += (_, _) => BuildMoreMenu();
-        _chrome.DragWindow += DragFromOverlay;
-        _chrome.MaximizeToggle += ToggleMaximize;
-        _chrome.MinimizeRequested += () => { if (AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter p) p.Minimize(); };
-        _chrome.CloseRequested += Close;
         _chrome.Dock.PointerEntered += (_, _) => _pointerOverDock = true;
         _chrome.Dock.PointerExited += (_, _) => _pointerOverDock = false;
         _chrome.PointerMoved += Chrome_PointerMoved;

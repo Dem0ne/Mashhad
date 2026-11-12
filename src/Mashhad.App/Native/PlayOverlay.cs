@@ -97,11 +97,18 @@ internal sealed class PlayOverlay
         DwmEnableBlurBehindWindow(hwnd, ref blur);
         DeleteObject(region);
         SetWindowSubclass(hwnd, s_subclass, (UIntPtr)0x4D534844, UIntPtr.Zero);
+        // Drop any frame styles and let the subclass recompute a frameless client area.
+        const long WS_BORDER = 0x00800000, WS_DLGFRAME = 0x00400000, WS_THICKFRAME = 0x00040000;
+        long style = GetWindowLongPtrW(hwnd, GWL_STYLE).ToInt64();
+        SetWindowLongPtrW(hwnd, GWL_STYLE, new IntPtr(style & ~(WS_BORDER | WS_DLGFRAME | WS_THICKFRAME)));
+        SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020 /* NOSIZE|NOMOVE|NOZORDER|NOACTIVATE|FRAMECHANGED */);
     }
 
     private static IntPtr Subclass(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr data)
     {
-        const uint WM_ERASEBKGND = 0x0014;
+        const uint WM_ERASEBKGND = 0x0014, WM_NCCALCSIZE = 0x0083;
+        // No non-client frame at all: the client area is the whole window, so no border is painted.
+        if (msg == WM_NCCALCSIZE && wParam != IntPtr.Zero) return IntPtr.Zero;
         if (msg == WM_ERASEBKGND && GetClientRect(hwnd, out var rc))
         {
             FillRect(wParam, ref rc, GetStockObject(4 /* BLACK_BRUSH */));
@@ -133,7 +140,9 @@ internal sealed class PlayOverlay
     [DllImport("comctl32.dll")] private static extern bool SetWindowSubclass(IntPtr hwnd, SubclassProc proc, UIntPtr id, UIntPtr data);
     [DllImport("comctl32.dll")] private static extern IntPtr DefSubclassProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 
-    private const int GWLP_HWNDPARENT = -8;
+    private const int GWLP_HWNDPARENT = -8, GWL_STYLE = -16;
+    [DllImport("user32.dll")] private static extern IntPtr GetWindowLongPtrW(IntPtr hwnd, int index);
+    [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")] private static extern IntPtr SetWindowLongPtrW(IntPtr hwnd, int index, IntPtr value);
     [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
 }
