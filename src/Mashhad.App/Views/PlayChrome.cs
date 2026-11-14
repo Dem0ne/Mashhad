@@ -141,6 +141,7 @@ public sealed class PlayChrome : Grid
     public void SetChromeVisible(bool visible)
     {
         Chrome.Opacity = visible ? 1 : 0;
+        if (!visible) Seek.HideBubble(); // popups are not faded with the chrome
         Chrome.IsHitTestVisible = visible;
         _scrimTop.Opacity = _scrimBottom.Opacity = visible ? 1 : 0;
     }

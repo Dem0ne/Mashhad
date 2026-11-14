@@ -305,7 +305,10 @@ public sealed partial class MainWindow
                     KickChrome();
                     await Task.Delay(300);
                     Log.Write($"SMOKE: chrome {_chrome.ActualWidth:0}x{_chrome.ActualHeight:0}, loaded={_chrome.IsLoaded}, visible={_overlay?.Visible}, root={(_chrome.XamlRoot is { } xr ? $"{xr.Size.Width:0}x{xr.Size.Height:0}" : "none")}");
+                    _chrome.Seek.ShowBubbleAt(0.6); // the time bubble above the seek bar, as when hovering
+                    Log.Write($"SMOKE: seek bubble open={_chrome.Seek.BubbleOpen}");
                     await Snap("play");
+                    _chrome.Seek.HideBubble();
 
                     Execute(Core.Input.PlayerCommand.ToggleEditMode);
                     if (!await Until(() => _mode == AppMode.Edit, 5)) throw new InvalidOperationException("edit mode not entered");
@@ -350,7 +353,9 @@ public sealed partial class MainWindow
                     if (!await Until(() => _mode == AppMode.Play && _fileReady && _kind == MediaKind.Video, 15)) throw new InvalidOperationException("video did not reopen");
                     _mpv.Set("pause", true);
                     KickChrome();
+                    _chrome.Seek.ShowBubbleAt(0.0); // at the very left end: must stay whole
                     await Snap("play-glass");
+                    _chrome.Seek.HideBubble();
                     RequestMode(AppMode.Edit);
                     await Until(() => _mode == AppMode.Edit && !_anim.IsRunning, 5);
                     await Task.Delay(1500);
