@@ -1,0 +1,1 @@
+﻿Thmanyah Sans (font.thmanyah.com), AES-256-GCM encrypted. Layout: 12-byte nonce | ciphertext | 16-byte tag, AAD 'mashhad-font-v1'. Key: GitHub Actions secret MASHHAD_FONT_KEY (base64, 32 bytes). Plain font files must never be committed (Thmanyah license forbids redistribution).

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Mashhad.Core</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MetadataExtractor" Version="2.8.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- WithCulture=false: "Strings.ar.json" must stay in the main assembly, not become an "ar" satellite. -->
+    <EmbeddedResource Include="Localization\Strings.*.json" WithCulture="false" LogicalName="Mashhad.Core.Localization.%(Filename)%(Extension)" />
+    <InternalsVisibleTo Include="Mashhad.Tests" />
+  </ItemGroup>
+</Project>

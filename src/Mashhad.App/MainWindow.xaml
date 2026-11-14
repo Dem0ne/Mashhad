@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The whole interface is built in C# (see Views/ and MainWindow.*.cs) so it can be type-checked
+     and tested off Windows; this file only provides the root. -->
+<Window
+    x:Class="Mashhad.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid x:Name="Root" />
+</Window>

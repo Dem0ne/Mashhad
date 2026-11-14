@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="Mashhad.App.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Accent ramp derived from the logo gradient: rose #FF5E7E -> crimson #E6223F -> wine #8E1035. -->
+            <Color x:Key="SystemAccentColor">#E6223F</Color>
+            <Color x:Key="SystemAccentColorLight1">#F03C58</Color>
+            <Color x:Key="SystemAccentColorLight2">#FF5E7E</Color>
+            <Color x:Key="SystemAccentColorLight3">#FF96AA</Color>
+            <Color x:Key="SystemAccentColorDark1">#BC1A39</Color>
+            <Color x:Key="SystemAccentColorDark2">#8E1035</Color>
+            <Color x:Key="SystemAccentColorDark3">#5C0A22</Color>
+
+            <Color x:Key="BrandRose">#FF5E7E</Color>
+            <Color x:Key="BrandCrimson">#E6223F</Color>
+            <Color x:Key="BrandWine">#8E1035</Color>
+            <LinearGradientBrush x:Key="BrandGradientBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Offset="0" Color="#FF5E7E" />
+                <GradientStop Offset="0.5" Color="#E6223F" />
+                <GradientStop Offset="1" Color="#8E1035" />
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="SegmentBrush" Color="#FF5E7E" Opacity="0.55" />
+            <SolidColorBrush x:Key="SegmentCurrentBrush" Color="#E6223F" />
+            <SolidColorBrush x:Key="LoopMarkerBrush" Color="#F2B84B" />
+
+            <Style x:Key="BarButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Width" Value="38" />
+                <Setter Property="Height" Value="36" />
+                <Setter Property="CornerRadius" Value="6" />
+            </Style>
+            <Style x:Key="BarTextButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="10,0" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="CornerRadius" Value="6" />
+            </Style>
+            <Style x:Key="BarToggle" TargetType="ToggleButton" BasedOn="{StaticResource DefaultToggleButtonStyle}">
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Width" Value="38" />
+                <Setter Property="Height" Value="36" />
+                <Setter Property="CornerRadius" Value="6" />
+            </Style>
+            <Style x:Key="BarIcon" TargetType="FontIcon">
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="FontFamily" Value="{ThemeResource SymbolThemeFontFamily}" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

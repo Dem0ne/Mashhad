@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Mashhad.Editing</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mashhad.Core\Mashhad.Core.csproj" />
+    <InternalsVisibleTo Include="Mashhad.Tests" />
+  </ItemGroup>
+</Project>

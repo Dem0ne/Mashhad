@@ -1,0 +1,285 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Core + Editing tests (Linux, real FFmpeg and libmpv)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Install FFmpeg and libmpv
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libmpv2
+      - name: Test
+        env:
+          MASHHAD_FONT_KEY: ${{ secrets.MASHHAD_FONT_KEY }}
+        run: dotnet test tests/Mashhad.Tests -c Release --logger "console;verbosity=normal"
+
+  windows:
+    name: Build, test, smoke-run and package (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Fetch libmpv and FFmpeg
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./scripts/fetch-deps.ps1
+
+      - name: Test (Windows FFmpeg and libmpv)
+        shell: pwsh
+        env:
+          MASHHAD_FONT_KEY: ${{ secrets.MASHHAD_FONT_KEY }}
+        run: |
+          $env:MASHHAD_FFMPEG_DIR = "$PWD\native\ffmpeg"
+          $env:MASHHAD_MPV_DIR = "$PWD\native\mpv"
+          dotnet test tests/Mashhad.Tests -c Release --logger "console;verbosity=normal"
+
+      # The font key (if the secret is available) is compiled into the app, masked, for this build only.
+      - name: Publish, zip and build installer
+        shell: pwsh
+        env:
+          MASHHAD_FONT_KEY: ${{ secrets.MASHHAD_FONT_KEY }}
+        run: ./scripts/build.ps1 -SkipDeps -Zip -Installer
+
+      # BitSync family layout: install for real, then uninstall next to a stand-in for another
+      # BitSync app, which must be left untouched.
+      - name: Install and uninstall (BitSync layout)
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist -Filter 'Mashhad-Setup-*.exe' | Select-Object -First 1
+          if (-not $setup) { throw 'installer not built' }
+          $pf = [Environment]::GetFolderPath('ProgramFiles')
+          $programs = [Environment]::GetFolderPath('CommonPrograms')
+          $family = Join-Path $pf 'BitSync'
+          $app = Join-Path $family 'Mashhad'
+          $group = Join-Path $programs 'BitSync'
+          $key = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\BitSync.Mashhad'
+          $problems = @()
+
+          # A sibling BitSync app already installed (folder, marker, shortcut).
+          New-Item -ItemType Directory -Force (Join-Path $family 'Wazn'), $group | Out-Null
+          Set-Content (Join-Path $family 'Wazn\wazn-install.json') '{"family":"BitSync","product":"Wazn"}'
+          Set-Content (Join-Path $group 'Wazn.lnk') 'stand-in'
+
+          $p = Start-Process $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$PWD\dist\install.log" -Wait -PassThru
+          Write-Host "setup exit code $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { Get-Content dist\install.log -Tail 40; throw 'setup failed' }
+
+          if (-not (Test-Path (Join-Path $app 'Mashhad.exe'))) { $problems += "Mashhad.exe not in $app" }
+          $markerPath = Join-Path $app 'mashhad-install.json'
+          if (Test-Path $markerPath) {
+            $marker = Get-Content $markerPath -Raw | ConvertFrom-Json
+            Write-Host "marker: $($marker | ConvertTo-Json -Compress)"
+            if ($marker.family -ne 'BitSync' -or $marker.product -ne 'Mashhad' -or $marker.installDir -ne $app) { $problems += 'marker contents wrong' }
+          } else { $problems += 'install marker missing' }
+          if (-not (Test-Path (Join-Path $group 'Mashhad.lnk'))) { $problems += 'Start-menu shortcut missing from the BitSync group' }
+          $entry = Get-ItemProperty $key -ErrorAction SilentlyContinue
+          if (-not $entry) { $problems += "uninstall key $key missing" }
+          else {
+            Write-Host "uninstall entry: $($entry.DisplayName) $($entry.DisplayVersion) by $($entry.Publisher) at $($entry.InstallLocation)"
+            if ($entry.InstallLocation -ne $app) { $problems += 'InstallLocation wrong' }
+          }
+          $stray = Get-ChildItem 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall' | Where-Object { $_.PSChildName -like '*_is1' -and (Get-ItemProperty $_.PSPath).DisplayName -eq 'Mashhad' }
+          if ($stray) { $problems += "extra Inno uninstall key $($stray.PSChildName)" }
+          $fonts = @(Get-ChildItem $app -Recurse -Force -Include '*.otf', '*.ttf', '*.enc' -File)
+          if ($fonts.Count -gt 0) { $problems += "font files installed: $($fonts.Name -join ', ')" }
+
+          # Uninstall the way Settings > Apps does (the quiet variant), then wait for it to finish.
+          $uninstaller = ($entry.QuietUninstallString -replace '^"([^"]+)".*$', '$1')
+          Start-Process $uninstaller -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          $deadline = (Get-Date).AddSeconds(90)
+          while (((Test-Path $app) -or (Test-Path $key)) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+
+          if (Test-Path $app) { $problems += "Mashhad folder left behind: $(Get-ChildItem $app -Recurse -Force | Select-Object -ExpandProperty FullName)" }
+          if (Test-Path $key) { $problems += 'uninstall key left behind' }
+          if (Test-Path (Join-Path $group 'Mashhad.lnk')) { $problems += 'shortcut left behind' }
+          if (-not (Test-Path (Join-Path $family 'Wazn\wazn-install.json'))) { $problems += 'the other BitSync app was touched' }
+          if (-not (Test-Path (Join-Path $group 'Wazn.lnk'))) { $problems += "the other app's shortcut was touched" }
+
+          # Alone, the shared folder and group go away with Mashhad.
+          Remove-Item (Join-Path $family 'Wazn'), (Join-Path $group 'Wazn.lnk') -Recurse -Force
+          Start-Process $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          $uninstaller = ((Get-ItemProperty $key).QuietUninstallString -replace '^"([^"]+)".*$', '$1')
+          Start-Process $uninstaller -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          $deadline = (Get-Date).AddSeconds(90)
+          while (((Test-Path $family) -or (Test-Path $group)) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+          if (Test-Path $family) { $problems += 'empty BitSync folder left behind' }
+          if (Test-Path $group) { $problems += 'empty BitSync Start-menu group left behind' }
+
+          if ($problems.Count -gt 0) { $problems | ForEach-Object { Write-Host "::error::$_" }; exit 1 }
+          Write-Host "BitSync layout OK: $app, marker, shortcut in $group, uninstall key BitSync.Mashhad; siblings untouched."
+
+      - name: Smoke-run the app (tour of every mode, with screenshots)
+        shell: pwsh
+        env:
+          EXPECT_BRAND_FONT: ${{ secrets.MASHHAD_FONT_KEY != '' }}
+        run: |
+          $exe = "$PWD\publish\Mashhad\Mashhad.exe"
+          $ffmpeg = "$PWD\native\ffmpeg\ffmpeg.exe"
+          New-Item -ItemType Directory -Force smoke\media\Archive | Out-Null
+          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=1280x720:rate=30:duration=8" -f lavfi -i "sine=frequency=440:duration=8" -c:v mpeg4 -q:v 3 -g 30 -pix_fmt yuv420p -c:a aac -shortest "smoke\media\فيديو sample.mp4"
+          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=1600x1000:rate=1" -frames:v 1 -update 1 "smoke\media\photo.png"
+          & $ffmpeg -hide_banner -loglevel error -y -f lavfi -i "mandelbrot=size=900x1200:rate=1" -frames:v 1 -update 1 "smoke\media\portrait.jpg"
+          Copy-Item "smoke\media\photo.png" "smoke\photo.png"
+          Copy-Item "smoke\media\فيديو sample.mp4" "smoke\video.mp4"
+          if (-not (Test-Path "smoke\media\portrait.jpg")) { throw "could not create test media" }
+
+          # Keep a minidump of any crash so it can be analysed below.
+          $dumps = "$PWD\smoke\dumps"
+          New-Item -ItemType Directory -Force $dumps | Out-Null
+          $wer = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Mashhad.exe'
+          New-Item -Path $wer -Force | Out-Null
+          New-ItemProperty -Path $wer -Name DumpFolder -Value $dumps -PropertyType ExpandString -Force | Out-Null
+          New-ItemProperty -Path $wer -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
+          $cdb = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          function Capture([string]$path) {
+            $b = [System.Windows.Forms.SystemInformation]::VirtualScreen
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($b.Left, $b.Top, 0, 0, $bmp.Size)
+            $g.Dispose(); $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
+          }
+
+          $failed = $false
+          $cases = @(
+            @{ Name = 'ui-only'; Args = @(); NoEngine = $true },
+            @{ Name = 'empty'; Args = @() },
+            @{ Name = 'tour'; Args = @("$PWD\smoke\media") },
+            @{ Name = 'video'; Args = @("$PWD\smoke\video.mp4") },
+            @{ Name = 'video-docked'; Args = @("$PWD\smoke\video.mp4"); NoOverlay = $true },
+            @{ Name = 'image'; Args = @("$PWD\smoke\photo.png") }
+          )
+          foreach ($case in $cases) {
+            $log = "$PWD\smoke\$($case.Name).log"
+            $argList = @('--smoke-test', '--smoke-log', "`"$log`"") + ($case.Args | ForEach-Object { "`"$_`"" })
+            if ($case.NoEngine) { $env:MASHHAD_DISABLE_ENGINE = '1' } else { Remove-Item Env:MASHHAD_DISABLE_ENGINE -ErrorAction SilentlyContinue }
+            if ($case.NoOverlay) { $env:MASHHAD_NO_OVERLAY = '1' } else { Remove-Item Env:MASHHAD_NO_OVERLAY -ErrorAction SilentlyContinue }
+            $started = Get-Date
+            $p = Start-Process -FilePath $exe -ArgumentList $argList -PassThru
+            $snaps = @{}
+            $deadline = (Get-Date).AddSeconds(180)
+            while (-not $p.HasExited -and (Get-Date) -lt $deadline) {
+              if (Test-Path $log) {
+                foreach ($line in (Get-Content $log -ErrorAction SilentlyContinue)) {
+                  if ($line -match 'SNAP (\S+)$' -and -not $snaps.ContainsKey($Matches[1])) {
+                    $n = $Matches[1]; $snaps[$n] = 1
+                    Start-Sleep -Milliseconds 600
+                    try { Capture "$PWD\smoke\snap-$($case.Name)-$n.png" } catch { Write-Host "capture failed: $_" }
+                  }
+                }
+              }
+              Start-Sleep -Milliseconds 150
+            }
+            if (-not $p.HasExited) { $p.Kill(); Write-Host "::error::smoke '$($case.Name)' hung"; $failed = $true }
+            $p.WaitForExit()
+            Write-Host ("===== smoke: {0} (exit code {1} / 0x{2:X8}) =====" -f $case.Name, $p.ExitCode, $p.ExitCode)
+            if (Test-Path $log) { Get-Content $log | Where-Object { $_ -notmatch 'mpv\[(v|debug|trace)\]|TRACE host' } } else { Write-Host "(no log written)" }
+            if ($p.ExitCode -ne 0 -or -not (Test-Path $log) -or -not (Select-String -Path $log -Pattern 'SMOKE RESULT: PASS' -Quiet)) {
+              Write-Host "::error::smoke '$($case.Name)' failed"
+              $failed = $true
+              Start-Sleep -Seconds 3
+              Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $started } -ErrorAction SilentlyContinue |
+                Where-Object { $_.ProviderName -in 'Application Error', '.NET Runtime', 'Windows Error Reporting' } |
+                ForEach-Object { Write-Host "--- [$($_.ProviderName)] $($_.TimeCreated)"; Write-Host $_.Message }
+              $dmp = Get-ChildItem $dumps -Filter *.dmp -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $started } |
+                Sort-Object LastWriteTime -Descending | Select-Object -First 1
+              if ($dmp -and $cdb) {
+                $report = "$PWD\smoke\$($case.Name)-analyze.txt"
+                & $cdb.FullName -z $dmp.FullName -y 'srv*C:\symcache*https://msdl.microsoft.com/download/symbols' -logo $report `
+                  -c '!analyze -v; .ecxr; kc 40; q' | Out-Null
+                Write-Host "--- crash analysis ($($dmp.Name))"
+                Select-String -Path $report -Pattern 'EXCEPTION_CODE_STR|ERROR_CODE|STOWED_EXCEPTION|EXCEPTION_MESSAGE|FAILURE_BUCKET_ID|SYMBOL_NAME' |
+                  ForEach-Object { Write-Host $_.Line }
+                Select-String -Path $report -Pattern '^STACK_TEXT' -Context 0,90 | ForEach-Object { $_.Context.PostContext | ForEach-Object { Write-Host $_ } }
+              }
+            }
+          }
+          Remove-Item Env:MASHHAD_DISABLE_ENGINE, Env:MASHHAD_NO_OVERLAY -ErrorAction SilentlyContinue
+
+          # The Play chrome is a transparent window over the video: a mostly white screen means it is opaque.
+          foreach ($png in Get-ChildItem smoke -Filter 'snap-tour-*.png') {
+            $img = New-Object System.Drawing.Bitmap $png.FullName
+            $white = 0; $total = 0
+            for ($y = 40; $y -lt $img.Height - 80; $y += 23) {
+              for ($x = 0; $x -lt $img.Width; $x += 23) {
+                $c = $img.GetPixel($x, $y); $total++
+                if ($c.R -ge 245 -and $c.G -ge 245 -and $c.B -ge 245) { $white++ }
+              }
+            }
+            $img.Dispose()
+            $share = [Math]::Round(100.0 * $white / [Math]::Max(1, $total))
+            Write-Host "$($png.BaseName): $share% white"
+            if ($share -ge 60) { Write-Host "::error::$($png.BaseName) is mostly white (opaque overlay or blank window)"; $failed = $true }
+          }
+
+          # UI font: Thmanyah Sans when the key was compiled in, Segoe UI Variable otherwise.
+          $fontLines = @(Select-String -Path "$PWD\smoke\tour.log" -Pattern 'FONT: ' -ErrorAction SilentlyContinue)
+          $fontLines | ForEach-Object { Write-Host "UI font: $($_.Line)" }
+          # Thmanyah Sans is embedded encrypted and must decrypt in the app; it is not applied yet
+          # (WinUI 3 cannot render it without writing it to the install folder or installing it).
+          if ($env:EXPECT_BRAND_FONT -eq 'true' -and -not ($fontLines | Where-Object { $_.Line -match 'FONT: thmanyah decrypted in memory' })) {
+            Write-Host "::error::the build has the font key but the app could not decrypt the embedded fonts"; $failed = $true
+          }
+          Write-Host "::warning::UI font is Segoe UI Variable: Thmanyah Sans is embedded and decrypts, but is not applied yet"
+          $installFonts = @(Get-ChildItem "$PWD\publish\Mashhad" -Recurse -Force -Include '*.otf', '*.ttf', '*.enc' -File)
+          if ($installFonts.Count -gt 0) { Write-Host "::error::font files in the install folder: $($installFonts.Name -join ', ')"; $failed = $true }
+
+          # Print downscaled screenshots into the log (base64 JPEG) so they can be reviewed without artifact access.
+          $jpeg = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' }
+          $params = New-Object System.Drawing.Imaging.EncoderParameters 1
+          $params.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter ([System.Drawing.Imaging.Encoder]::Quality), 62L
+          foreach ($png in Get-ChildItem smoke -Filter 'snap-*.png' | Sort-Object LastWriteTime) {
+            $img = [System.Drawing.Image]::FromFile($png.FullName)
+            $w = [Math]::Min(1100, $img.Width); $h = [int]($img.Height * $w / $img.Width)
+            $small = New-Object System.Drawing.Bitmap $img, $w, $h
+            $ms = New-Object System.IO.MemoryStream
+            $small.Save($ms, $jpeg, $params)
+            $b64 = [Convert]::ToBase64String($ms.ToArray())
+            $img.Dispose(); $small.Dispose(); $ms.Dispose()
+            $name = $png.BaseName
+            for ($i = 0; $i -lt $b64.Length; $i += 4000) { Write-Host ("SNAPB64 {0} {1} {2}" -f $name, ($i / 4000), $b64.Substring($i, [Math]::Min(4000, $b64.Length - $i))) }
+            Write-Host "SNAPEND $name"
+          }
+          if ($failed) { exit 1 }
+
+      - name: Upload installer and portable zip
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mashhad-windows-x64
+          path: |
+            dist/*.exe
+            dist/*.zip
+          if-no-files-found: warn
+
+      - name: Upload smoke-test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-logs
+          path: |
+            smoke/*.log
+            smoke/*-analyze.txt
+            smoke/snap-*.png
+          if-no-files-found: ignore
